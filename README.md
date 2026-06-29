@@ -11,21 +11,36 @@ here: https://wails.io/docs/reference/project-config
 
 ```
 firepreview/
-├── frontend/                 # React-TypeScript UI
-│   ├── src/
-│   │   ├── components/      # Reusable React components
-│   │   ├── pages/           # Page components
-│   │   ├── App.tsx          # Main App component
-│   │   └── main.tsx         # Entry point
-│   ├── index.html
-│   └── package.json
-├── backend/                  # Go backend
-│   ├── main.go              # Application entry point
-│   ├── app.go               # Application logic
-│   └── handlers/            # Backend handlers
-├── wails.json               # Wails configuration
-├── README.md
-└── go.mod
+├── main.go
+├── app.go
+├── wails.json
+├── go.mod
+│
+├── internal/
+│   └── database/
+│       ├── client.go
+│       ├── collections.go
+│       ├── documents.go
+│       └── types.go
+│
+└── frontend/
+    ├── wailsjs/            # auto-generated, do not edit
+    └── src/
+        ├── main.tsx
+        ├── router/
+        │   └── ProtectedRoute.tsx
+        ├── pages/
+        │   ├── auth/
+        │   ├── home/
+        │   └── collection/
+        ├── components/
+        │   ├── ui/         # shadcn, do not edit
+        │   ├── PageHeader.tsx
+        │   ├── CodeBlock.tsx
+        │   └── QueryInput.tsx
+        └── store/
+            ├── connectionStore.ts
+            └── explorerStore.ts
 
 ```
 
