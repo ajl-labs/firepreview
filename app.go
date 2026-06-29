@@ -61,6 +61,7 @@ func (a *App) ListCollections() ([]database.CollectionInfo, error) {
 // }
 
 func (a *App) GetCollection(collectionPath string, params database.PaginationParams) (database.QueryResult, error) {
+	fmt.Println("Query received in Go:", params.Query)
 	return a.db.GetCollection(a.ctx, collectionPath, params)
 }
 

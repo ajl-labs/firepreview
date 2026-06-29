@@ -13,7 +13,11 @@ interface CollectionStore {
   nextPageToken: string; // For pagination
   hasMore: boolean; // Indicates if there are more documents to fetch
   pageSize: number; // Number of documents per page
-  fetchCollection: (collectionName: string, pageToken: string) => Promise<void>;
+  fetchCollection: (
+    collectionName: string,
+    pageToken?: string,
+    query?: string,
+  ) => Promise<void>;
   reset: () => void; // Reset the store to its initial state
 }
 
@@ -39,7 +43,11 @@ export const useCollectionStore = create<CollectionStore>((set, get) => ({
       hasMore: false,
     }),
 
-  fetchCollection: async (collectionName: string, pageToken: string = "") => {
+  fetchCollection: async (
+    collectionName: string,
+    pageToken: string = "",
+    query: string = "",
+  ) => {
     set({ loading: true, error: null });
     try {
       const {
@@ -50,6 +58,7 @@ export const useCollectionStore = create<CollectionStore>((set, get) => ({
       } = await GetCollection(collectionName, {
         limit: PAGE_SIZE,
         pageToken,
+        query,
       });
 
       set((state) => ({

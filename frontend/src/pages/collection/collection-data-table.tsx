@@ -106,13 +106,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     }
   };
 
-  const handleQuery = (clauses: any[]) => {
-    console.log(clauses);
-    // e.g. [
-    //   { field: 'status', operator: '==', value: 'active', join: 'AND' },
-    //   { field: 'age', operator: '>=', value: '18' }
-    // ]
-  };
+  const handleQuery = (query: string) => {};
 
   useEffect(() => {
     handleFetchData();

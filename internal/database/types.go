@@ -41,4 +41,5 @@ type Client struct {
 type PaginationParams struct {
 	Limit     int    `json:"limit"`
 	PageToken string `json:"pageToken"` // last doc ID for cursor-based pagination
+	Query     string `json:"query"`     // optional query string for filtering
 }
