@@ -24,7 +24,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { QueryClause, QueryInput } from "@/components/QueryInput";
+import { QueryInput } from "@/components/QueryInput";
 
 import {
   Sheet,
@@ -106,7 +106,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     }
   };
 
-  const handleQuery = (clauses: QueryClause[]) => {
+  const handleQuery = (clauses: any[]) => {
     console.log(clauses);
     // e.g. [
     //   { field: 'status', operator: '==', value: 'active', join: 'AND' },
@@ -132,10 +132,8 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
         document={currentDocument}
         onClose={() => setCurrentDocument(null)}
       />
+      <QueryInput onQuery={handleQuery} fields={fields} />
       <div className="flex items-center py-4 gap-2">
-        <div className="w-2/3">
-          <QueryInput onQuery={handleQuery} />
-        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
