@@ -1,0 +1,79 @@
+package main
+
+import (
+	"context"
+	"firepreview/internal/database"
+	"fmt"
+
+	"github.com/joho/godotenv"
+)
+
+// App struct
+type App struct {
+	ctx context.Context
+	db  *database.Client
+}
+
+// NewApp creates a new App application struct
+func NewApp() *App {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+	}
+	return &App{
+		db: database.New(),
+	}
+}
+
+// startup is called when the app starts. The context is saved
+// so we can call the runtime methods
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+}
+
+// Greet returns a greeting for the given name
+func (a *App) Greet(name string) string {
+	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+func (a *App) shutdown(ctx context.Context) {
+	a.db.Disconnect()
+}
+
+func (a *App) ConnectToDatabase(config database.ConnectionConfig) error {
+	return a.db.Connect(a.ctx, config)
+}
+
+func (a *App) IsDatabaseConnected() bool {
+	return a.db.IsConnected()
+}
+
+func (a *App) DisconnectFirestore() {
+	a.db.Disconnect()
+}
+
+func (a *App) ListCollections() ([]database.CollectionInfo, error) {
+	return a.db.ListCollections(a.ctx)
+}
+
+// func (a *App) ListSubCollections(docPath string) ([]database.CollectionInfo, error) {
+// 	return a.db.ListSubCollections(a.ctx, docPath)
+// }
+
+func (a *App) GetCollection(collectionPath string, params database.PaginationParams) (database.QueryResult, error) {
+	return a.db.GetCollection(a.ctx, collectionPath, params)
+}
+
+func (a *App) GetDocument(docPath string) (database.DocumentResult, error) {
+	return a.db.GetDocument(a.ctx, docPath)
+}
+
+func (a *App) QueryCollection(
+	collectionPath string,
+	field string,
+	operator string,
+	value interface{},
+	limit int,
+) (database.QueryResult, error) {
+	return a.db.QueryCollection(a.ctx, collectionPath, field, operator, value, limit)
+}
