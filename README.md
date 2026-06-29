@@ -2,7 +2,7 @@
 
 ## About
 
-FirePreview is a desktop application built with Wails (Go) and React-TypeScript. It provides a modern interface for previewing and managing files with real-time updates and seamless integration between frontend and backend.
+FirePreview is a desktop application built with Wails (Go) and React-TypeScript. It provides a modern interface for previewing and managing firebase firestore.
 
 You can configure the project by editing `wails.json`. More information about the project settings can be found
 here: https://wails.io/docs/reference/project-config
