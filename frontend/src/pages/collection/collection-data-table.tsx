@@ -106,7 +106,10 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     }
   };
 
-  const handleQuery = (query: string) => {};
+  const handleQuery = (query: string) => {
+    console.log("Query:", query);
+    // Implement your query handling logic here
+  };
 
   useEffect(() => {
     handleFetchData();
