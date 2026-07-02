@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -54,6 +54,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     nextPageToken,
     loading,
     pageSize,
+    bulkDeleteDocuments,
   } = useCollectionStore((s) => s);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
@@ -63,6 +64,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   const [currentPageIndex, setCurrentPageIndex] = React.useState(0);
   const [currentDocument, setCurrentDocument] =
     React.useState<database.DocumentResult | null>(null);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const table = useReactTable({
     data: documents,
@@ -72,20 +74,23 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     manualPagination: true,
+    onRowSelectionChange: setRowSelection,
     state: {
       columnFilters,
       columnVisibility,
+      rowSelection,
       pagination: {
         pageIndex: currentPageIndex,
         pageSize,
       },
     },
+    getRowId: (row) => row.id,
   });
 
   const handleFetchData = useCallback(
-    async (pageToken: string = "") => {
+    async (params?: Partial<database.QueryParams>) => {
       if (collectionName) {
-        await fetchCollection(decodeURIComponent(collectionName), pageToken);
+        await fetchCollection(decodeURIComponent(collectionName), params);
       }
     },
     [collectionName],
@@ -93,7 +98,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
 
   const handleNextPage = () => {
     if (hasMore) {
-      handleFetchData(nextPageToken);
+      handleFetchData({ pageToken: nextPageToken });
       setCurrentPageIndex((prevIndex) => prevIndex + 1);
     }
   };
@@ -101,14 +106,27 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   const handlePreviousPage = () => {
     if (currentPageIndex > 0) {
       // For previous page, we need to fetch the collection again without a page token
-      // handleFetchData();
+      handleFetchData({ pageToken: "" });
       setCurrentPageIndex((prevIndex) => prevIndex - 1);
     }
   };
 
   const handleQuery = (query: string) => {
-    console.log("Query:", query);
-    // Implement your query handling logic here
+    handleFetchData({ query, pageToken: "" });
+  };
+
+  const handleDeleteSelected = async () => {
+    const idsToDelete = table
+      .getSelectedRowModel()
+      .rows.map((row) => row.original)
+      ?.map((doc) => doc.id);
+    if (idsToDelete.length > 0 && collectionName) {
+      await bulkDeleteDocuments(
+        decodeURIComponent(collectionName),
+        idsToDelete,
+      );
+    }
+    handleFetchData({ pageToken: "" });
   };
 
   useEffect(() => {
@@ -130,33 +148,42 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
         onClose={() => setCurrentDocument(null)}
       />
       <QueryInput onQuery={handleQuery} fields={fields} />
-      <div className="flex items-center py-4 gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns
+      <div className="flex items-center justify-between py-4 gap-2">
+        {/* Left side: Put any title, search bar, or leave it empty */}
+        <div className="flex items-center gap-2"></div>
+
+        {/* Right side: Placed cleanly at the end */}
+        <div className="flex items-center gap-2">
+          {Object.values(rowSelection).length > 0 && (
+            <Button variant="destructive" onClick={handleDeleteSelected}>
+              Delete
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">Columns</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                    >
+                      {column.id}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>

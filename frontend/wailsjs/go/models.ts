@@ -62,13 +62,13 @@ export namespace database {
 	        this.count = source["count"];
 	    }
 	}
-	export class PaginationParams {
+	export class QueryParams {
 	    limit: number;
 	    pageToken: string;
 	    query: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new PaginationParams(source);
+	        return new QueryParams(source);
 	    }
 	
 	    constructor(source: any = {}) {

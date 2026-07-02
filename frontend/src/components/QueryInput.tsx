@@ -34,7 +34,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onQuery, fields }) => {
       <InputGroup>
         <InputGroupTextarea
           id="textarea-code-32"
-          placeholder="console.log('Hello, world!');"
+          placeholder="field == value AND field2 > value2"
           className="min-h-[40px]"
           onChange={(e) => setQuery(e.target.value)}
           value={query}
@@ -47,24 +47,6 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onQuery, fields }) => {
         >
           Run <IconCornerDownLeft />
         </InputGroupButton>
-        {/* <InputGroupAddon align="block-end" className="border-t">
-         
-          <InputGroupButton size="sm" className="ml-auto" variant="default">
-            Run <IconCornerDownLeft />
-          </InputGroupButton>
-        </InputGroupAddon> */}
-        {/* <InputGroupAddon align="block-start" className="border-b">
-          <InputGroupText className="font-mono font-medium">
-            <IconBrandFirebase stroke={1.5} />
-            script.js
-          </InputGroupText>
-          <InputGroupButton className="ml-auto" size="icon-xs">
-            <IconRefresh />
-          </InputGroupButton>
-          <InputGroupButton variant="ghost" size="icon-xs">
-            <IconCopy />
-          </InputGroupButton>
-        </InputGroupAddon> */}
       </InputGroup>
     </div>
   );

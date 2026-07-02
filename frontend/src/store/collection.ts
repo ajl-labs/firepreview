@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { GetCollection } from "../../wailsjs/go/main/App";
+import { GetCollection, BulkDeleteDocuments } from "../../wailsjs/go/main/App";
 import { database } from "../../wailsjs/go/models";
 const PAGE_SIZE = 50; // Default page size
 
@@ -15,10 +15,13 @@ interface CollectionStore {
   pageSize: number; // Number of documents per page
   fetchCollection: (
     collectionName: string,
-    pageToken?: string,
-    query?: string,
+    options?: Partial<database.QueryParams>,
   ) => Promise<void>;
   reset: () => void; // Reset the store to its initial state
+  bulkDeleteDocuments: (
+    collectionName: string,
+    documentIds: string[],
+  ) => Promise<void>;
 }
 
 export const useCollectionStore = create<CollectionStore>((set, get) => ({
@@ -43,11 +46,8 @@ export const useCollectionStore = create<CollectionStore>((set, get) => ({
       hasMore: false,
     }),
 
-  fetchCollection: async (
-    collectionName: string,
-    pageToken: string = "",
-    query: string = "",
-  ) => {
+  fetchCollection: async (collectionName, params) => {
+    const { pageToken = "", query = "" } = params || {};
     set({ loading: true, error: null });
     try {
       const {
@@ -69,6 +69,17 @@ export const useCollectionStore = create<CollectionStore>((set, get) => ({
         nextPageToken: newNextPageToken ?? "", // Store the next page token for pagination
         hasMore: !!newNextPageToken, // Update hasMore based on the presence of a next page token
       }));
+    } catch (e: any) {
+      set({ error: String(e), loading: false });
+    }
+  },
+  bulkDeleteDocuments: async (collectionName, documentIds) => {
+    set({ loading: true, error: null });
+    try {
+      // Call the Go backend to delete documents
+      await BulkDeleteDocuments(collectionName, documentIds);
+      // After deletion, refetch the collection to update the state
+      await get().fetchCollection(collectionName, { pageToken: "" });
     } catch (e: any) {
       set({ error: String(e), loading: false });
     }

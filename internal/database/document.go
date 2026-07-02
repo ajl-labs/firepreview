@@ -4,18 +4,26 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
 )
 
-func (c *Client) GetCollection(ctx context.Context, collectionPath string, params PaginationParams) (QueryResult, error) {
+func (c *Client) GetCollection(ctx context.Context, collectionPath string, params QueryParams) (QueryResult, error) {
 	if err := c.ensure(); err != nil {
 		return QueryResult{}, err
 	}
 
 	query := c.database.Collection(collectionPath).Query
 
+	if params.Query != "" {
+		var err error
+		query, err = applyQuery(query, params.Query)
+		if err != nil {
+			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+		}
+	}
 	// if we have a cursor, start after that document
 	if params.PageToken != "" {
 		lastDocSnap, err := c.database.Collection(collectionPath).Doc(params.PageToken).Get(ctx)
@@ -52,18 +60,18 @@ func (c *Client) QueryCollection(
 	field string,
 	operator string,
 	value interface{},
-	limit int,
+	params QueryParams,
 ) (QueryResult, error) {
 	if err := c.ensure(); err != nil {
 		return QueryResult{}, err
 	}
 
 	q := c.database.Collection(collectionPath).Where(field, operator, value)
-	if limit > 0 {
-		q = q.Limit(limit)
+	if params.Limit > 0 {
+		q = q.Limit(params.Limit)
 	}
 
-	return c.runQuery(ctx, q, limit)
+	return c.runQuery(ctx, q, params.Limit)
 }
 
 func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int) (QueryResult, error) {
@@ -124,6 +132,78 @@ func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int)
 		Fields:        fieldList,
 		NextPageToken: nextPageToken,
 	}, nil
+}
+
+func (c *Client) BulkDeleteDocuments(ctx context.Context, collectionName string, docIDs []string) error {
+	fmt.Println("BulkDeleteDocuments called with paths:", docIDs) // Debugging line
+	if err := c.ensure(); err != nil {
+		return err
+	}
+
+	bw := c.database.BulkWriter(ctx)
+
+	type deleteJob struct {
+		docID string
+		job   *firestore.BulkWriterJob
+	}
+	jobs := make([]deleteJob, 0, len(docIDs))
+
+	for _, id := range docIDs {
+		docRef := c.database.Collection(collectionName).Doc(id)
+
+		job, err := bw.Delete(docRef)
+		if err != nil {
+			return fmt.Errorf("failed to enqueue delete for %s/%s: %w", collectionName, id, err)
+		}
+		jobs = append(jobs, deleteJob{docID: id, job: job})
+	}
+
+	bw.End() // flushes all queued writes
+
+	var errs []error
+	for _, j := range jobs {
+		if _, err := j.job.Results(); err != nil {
+			errs = append(errs, fmt.Errorf("delete failed for %s/%s: %w", collectionName, j.docID, err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("some deletes failed: %v", errs)
+	}
+
+	return nil
+}
+
+func applyQuery(query firestore.Query, queryStr string) (firestore.Query, error) {
+	parsedParts, err := parseQuery(queryStr)
+	if err != nil {
+		return query, fmt.Errorf("applyQuery: %w", err)
+	}
+
+	for _, part := range parsedParts {
+		query = query.Where(part.Field, part.Operator, part.Value)
+	}
+
+	return query, nil
+}
+
+func parseQuery(queryStr string) ([]ParsedQueryPart, error) {
+	var parsedParts []ParsedQueryPart
+	queryStrCombinations := strings.Split(queryStr, " AND ")
+	for _, queryStr := range queryStrCombinations {
+		parts := strings.Split(queryStr, " ")
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("invalid query format: %q", queryStr)
+
+		}
+
+		parsedParts = append(parsedParts, ParsedQueryPart{
+			Field:    parts[0],
+			Operator: parts[1],
+			Value:    parts[2],
+		})
+	}
+	return parsedParts, nil
 }
 
 // snapshotToResult converts a Firestore DocumentSnapshot to a DocumentResult

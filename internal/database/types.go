@@ -38,8 +38,14 @@ type Client struct {
 	config   ConnectionConfig
 }
 
-type PaginationParams struct {
+type QueryParams struct {
 	Limit     int    `json:"limit"`
 	PageToken string `json:"pageToken"` // last doc ID for cursor-based pagination
 	Query     string `json:"query"`     // optional query string for filtering
+}
+
+type ParsedQueryPart struct {
+	Field    string
+	Operator string
+	Value    interface{}
 }

@@ -60,8 +60,7 @@ func (a *App) ListCollections() ([]database.CollectionInfo, error) {
 // 	return a.db.ListSubCollections(a.ctx, docPath)
 // }
 
-func (a *App) GetCollection(collectionPath string, params database.PaginationParams) (database.QueryResult, error) {
-	fmt.Println("Query received in Go:", params.Query)
+func (a *App) GetCollection(collectionPath string, params database.QueryParams) (database.QueryResult, error) {
 	return a.db.GetCollection(a.ctx, collectionPath, params)
 }
 
@@ -74,7 +73,11 @@ func (a *App) QueryCollection(
 	field string,
 	operator string,
 	value interface{},
-	limit int,
+	params database.QueryParams,
 ) (database.QueryResult, error) {
-	return a.db.QueryCollection(a.ctx, collectionPath, field, operator, value, limit)
+	return a.db.QueryCollection(a.ctx, collectionPath, field, operator, value, params)
+}
+
+func (a *App) BulkDeleteDocuments(collectionPath string, docIDs []string) error {
+	return a.db.BulkDeleteDocuments(a.ctx, collectionPath, docIDs)
 }
