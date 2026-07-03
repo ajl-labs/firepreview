@@ -18,6 +18,10 @@ export function GetCollection(arg1, arg2) {
   return window['go']['main']['App']['GetCollection'](arg1, arg2);
 }
 
+export function GetCollectionFields(arg1) {
+  return window['go']['main']['App']['GetCollectionFields'](arg1);
+}
+
 export function GetDocument(arg1) {
   return window['go']['main']['App']['GetDocument'](arg1);
 }

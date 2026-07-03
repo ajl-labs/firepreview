@@ -11,6 +11,7 @@ interface CollectionDataViewDialogProps {
   document?: database.DocumentResult | null;
   onClose?: () => void;
 }
+
 export const CollectionDataViewDialog: React.FC<
   CollectionDataViewDialogProps
 > = ({ document, onClose }) => {

@@ -18,6 +18,7 @@ export namespace database {
 	    projectId: string;
 	    credentialsPath: string;
 	    useEmulator: boolean;
+	    emulatorHost: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionConfig(source);
@@ -28,6 +29,7 @@ export namespace database {
 	        this.projectId = source["projectId"];
 	        this.credentialsPath = source["credentialsPath"];
 	        this.useEmulator = source["useEmulator"];
+	        this.emulatorHost = source["emulatorHost"];
 	    }
 	}
 	export class DocumentResult {
@@ -64,8 +66,9 @@ export namespace database {
 	}
 	export class QueryParams {
 	    limit: number;
-	    pageToken: string;
+	    docId: string;
 	    query: string;
+	    direction: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new QueryParams(source);
@@ -74,15 +77,22 @@ export namespace database {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.limit = source["limit"];
-	        this.pageToken = source["pageToken"];
+	        this.docId = source["docId"];
 	        this.query = source["query"];
+	        this.direction = source["direction"];
 	    }
 	}
 	export class QueryResult {
 	    documents: DocumentResult[];
 	    total: number;
 	    fields: FieldInfo[];
-	    nextPageToken: string;
+	    page: number;
+	    pageSize: number;
+	    totalPages: number;
+	    nextCursor?: string;
+	    prevCursor?: string;
+	    hasNext: boolean;
+	    hasPrev: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new QueryResult(source);
@@ -93,7 +103,13 @@ export namespace database {
 	        this.documents = this.convertValues(source["documents"], DocumentResult);
 	        this.total = source["total"];
 	        this.fields = this.convertValues(source["fields"], FieldInfo);
-	        this.nextPageToken = source["nextPageToken"];
+	        this.page = source["page"];
+	        this.pageSize = source["pageSize"];
+	        this.totalPages = source["totalPages"];
+	        this.nextCursor = source["nextCursor"];
+	        this.prevCursor = source["prevCursor"];
+	        this.hasNext = source["hasNext"];
+	        this.hasPrev = source["hasPrev"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

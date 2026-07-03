@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { GetCollection, BulkDeleteDocuments } from "../../wailsjs/go/main/App";
 import { database } from "../../wailsjs/go/models";
+
 const PAGE_SIZE = 50; // Default page size
 
 interface CollectionStore {
@@ -9,77 +10,200 @@ interface CollectionStore {
   loading: boolean;
   error: string | null;
   fields: database.FieldInfo[];
-  pageToken: string; // For pagination
-  nextPageToken: string; // For pagination
-  hasMore: boolean; // Indicates if there are more documents to fetch
-  pageSize: number; // Number of documents per page
+
+  // pagination
+  collectionName: string; // remembered so next/prev don't need it passed again
+  query: string; // remembered filter/search term for next/prev
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  cursorStack: string[]; // docIds of pages visited, for Prev
+  nextCursor: string;
+  prevCursor: string;
+  hasNext: boolean;
+  hasPrev: boolean;
+
   fetchCollection: (
     collectionName: string,
     options?: Partial<database.QueryParams>,
   ) => Promise<void>;
-  reset: () => void; // Reset the store to its initial state
+  nextPage: () => Promise<void>;
+  prevPage: () => Promise<void>;
+  reset: () => void;
   bulkDeleteDocuments: (
     collectionName: string,
     documentIds: string[],
   ) => Promise<void>;
 }
 
-export const useCollectionStore = create<CollectionStore>((set, get) => ({
-  documents: [],
+const defaultState = {
+  documents: [] as database.DocumentResult[],
   total: 0,
   loading: false,
-  error: null,
-  fields: [],
-  pageToken: "",
-  nextPageToken: "",
-  hasMore: false, // Initialize hasMore to false
-  pageSize: PAGE_SIZE, // Set the default page size
-  reset: () =>
-    set({
-      documents: [],
-      total: 0,
-      loading: false,
-      error: null,
-      fields: [],
-      pageToken: "",
-      nextPageToken: "",
-      hasMore: false,
-    }),
+  error: null as string | null,
+  fields: [] as database.FieldInfo[],
 
-  fetchCollection: async (collectionName, params) => {
-    const { pageToken = "", query = "" } = params || {};
+  collectionName: "",
+  query: "",
+  page: 1,
+  pageSize: PAGE_SIZE,
+  totalPages: 0,
+  cursorStack: [] as string[],
+  nextCursor: "",
+  prevCursor: "",
+  hasNext: false,
+  hasPrev: false,
+};
+
+export const useCollectionStore = create<CollectionStore>((set, get) => ({
+  ...defaultState,
+
+  reset: () => set(defaultState),
+
+  // Base fetch — always treated as loading a fresh page (page 1, cleared cursor
+  // stack) unless a docId/direction is explicitly passed in `options`. Use
+  // nextPage/prevPage for cursor navigation instead of calling this directly
+  // mid-pagination.
+  fetchCollection: async (collectionName, options = {}) => {
+    const { pageSize } = get();
+    const isNewQuery =
+      collectionName !== get().collectionName ||
+      (options.query ?? "") !== get().query;
+
     set({ loading: true, error: null });
     try {
       const {
         documents = [],
-        total,
         fields,
-        nextPageToken: newNextPageToken = "",
+        total = 0,
+        nextCursor = "",
+        prevCursor = "",
+        hasNext = false,
+        hasPrev = false,
       } = await GetCollection(collectionName, {
-        limit: PAGE_SIZE,
-        pageToken,
-        query,
+        limit: pageSize,
+        query: "",
+        docId: "",
+        direction: "",
+        ...options,
       });
 
-      set((state) => ({
-        documents: pageToken ? [...state.documents, ...documents] : documents,
-        total: total ?? 0,
-        fields: fields ?? [],
+      set({
+        documents: documents ?? [],
+        fields,
+        total,
+        nextCursor,
+        prevCursor,
+        hasNext,
+        hasPrev,
         loading: false,
-        nextPageToken: newNextPageToken ?? "", // Store the next page token for pagination
-        hasMore: !!newNextPageToken, // Update hasMore based on the presence of a next page token
-      }));
+        collectionName,
+        query: options.query ?? "",
+        totalPages: pageSize > 0 ? Math.ceil(total / pageSize) : 0,
+        // fresh query resets paging position; cursor-driven calls (next/prev)
+        // set page/cursorStack themselves after this resolves
+        ...(isNewQuery ? { page: 1, cursorStack: [] } : {}),
+      });
     } catch (e: any) {
       set({ error: String(e), loading: false });
     }
   },
+
+  nextPage: async () => {
+    const {
+      collectionName,
+      query,
+      nextCursor,
+      hasNext,
+      pageSize,
+      page,
+      cursorStack,
+    } = get();
+    if (!hasNext || !nextCursor || !collectionName) return;
+
+    set({ loading: true, error: null });
+    try {
+      const {
+        documents = [],
+        fields,
+        total = 0,
+        nextCursor: newNextCursor = "",
+        prevCursor: newPrevCursor = "",
+        hasNext: newHasNext = false,
+        hasPrev: newHasPrev = false,
+      } = await GetCollection(collectionName, {
+        limit: pageSize,
+        query,
+        docId: nextCursor,
+        direction: "next",
+      });
+
+      set({
+        documents: documents ?? [],
+        fields,
+        total,
+        nextCursor: newNextCursor,
+        prevCursor: newPrevCursor,
+        hasNext: newHasNext,
+        hasPrev: newHasPrev,
+        loading: false,
+        page: page + 1,
+        cursorStack: [...cursorStack, nextCursor],
+        totalPages: pageSize > 0 ? Math.ceil(total / pageSize) : 0,
+      });
+    } catch (e: any) {
+      set({ error: String(e), loading: false });
+    }
+  },
+
+  prevPage: async () => {
+    const { collectionName, query, pageSize, page, cursorStack } = get();
+    if (cursorStack.length === 0 || !collectionName) return;
+
+    const newStack = cursorStack.slice(0, -1);
+    const cursorToUse = newStack[newStack.length - 1] ?? ""; // "" => first page
+
+    set({ loading: true, error: null });
+    try {
+      const {
+        documents = [],
+        fields,
+        total = 0,
+        nextCursor = "",
+        prevCursor = "",
+        hasNext = false,
+        hasPrev = false,
+      } = await GetCollection(collectionName, {
+        limit: pageSize,
+        query,
+        docId: cursorToUse,
+        direction: cursorToUse ? "prev" : "",
+      });
+
+      set({
+        documents: documents ?? [],
+        fields,
+        total,
+        nextCursor,
+        prevCursor,
+        hasNext,
+        hasPrev,
+        loading: false,
+        page: Math.max(1, page - 1),
+        cursorStack: newStack,
+        totalPages: pageSize > 0 ? Math.ceil(total / pageSize) : 0,
+      });
+    } catch (e: any) {
+      set({ error: String(e), loading: false });
+    }
+  },
+
   bulkDeleteDocuments: async (collectionName, documentIds) => {
     set({ loading: true, error: null });
     try {
-      // Call the Go backend to delete documents
       await BulkDeleteDocuments(collectionName, documentIds);
-      // After deletion, refetch the collection to update the state
-      await get().fetchCollection(collectionName, { pageToken: "" });
+      // refetch current page fresh after delete (counts/cursors may have shifted)
+      await get().fetchCollection(collectionName, { query: get().query });
     } catch (e: any) {
       set({ error: String(e), loading: false });
     }

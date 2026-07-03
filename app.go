@@ -41,6 +41,7 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 func (a *App) ConnectToDatabase(config database.ConnectionConfig) error {
+	a.db.Disconnect() // Disconnect if already connected
 	return a.db.Connect(a.ctx, config)
 }
 
@@ -55,10 +56,6 @@ func (a *App) DisconnectFirestore() {
 func (a *App) ListCollections() ([]database.CollectionInfo, error) {
 	return a.db.ListCollections(a.ctx)
 }
-
-// func (a *App) ListSubCollections(docPath string) ([]database.CollectionInfo, error) {
-// 	return a.db.ListSubCollections(a.ctx, docPath)
-// }
 
 func (a *App) GetCollection(collectionPath string, params database.QueryParams) (database.QueryResult, error) {
 	return a.db.GetCollection(a.ctx, collectionPath, params)
@@ -80,4 +77,8 @@ func (a *App) QueryCollection(
 
 func (a *App) BulkDeleteDocuments(collectionPath string, docIDs []string) error {
 	return a.db.BulkDeleteDocuments(a.ctx, collectionPath, docIDs)
+}
+
+func (a *App) GetCollectionFields(collectionPath string) ([]string, error) {
+	return a.db.GetCollectionFields(collectionPath)
 }

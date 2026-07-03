@@ -6,6 +6,7 @@ type ConnectionConfig struct {
 	ProjectID       string `json:"projectId"`
 	CredentialsPath string `json:"credentialsPath"`
 	UseEmulator     bool   `json:"useEmulator"`
+	EmulatorHost    string `json:"emulatorHost"`
 }
 
 type DocumentResult struct {
@@ -21,10 +22,16 @@ type FieldInfo struct {
 }
 
 type QueryResult struct {
-	Documents     []DocumentResult `json:"documents"`
-	Total         int              `json:"total"`
-	Fields        []FieldInfo      `json:"fields"`
-	NextPageToken string           `json:"nextPageToken"` // empty if no more pages
+	Documents  []DocumentResult `json:"documents"`
+	Total      int64            `json:"total"`
+	Fields     []FieldInfo      `json:"fields"`
+	Page       int              `json:"page"`
+	Limit      int              `json:"pageSize"`
+	TotalPages int              `json:"totalPages"`
+	NextCursor string           `json:"nextCursor,omitempty"`
+	PrevCursor string           `json:"prevCursor,omitempty"`
+	HasNext    bool             `json:"hasNext"`
+	HasPrev    bool             `json:"hasPrev"`
 }
 
 type CollectionInfo struct {
@@ -40,8 +47,9 @@ type Client struct {
 
 type QueryParams struct {
 	Limit     int    `json:"limit"`
-	PageToken string `json:"pageToken"` // last doc ID for cursor-based pagination
+	Cursor    string `json:"docId"`     // last doc ID for cursor-based pagination
 	Query     string `json:"query"`     // optional query string for filtering
+	Direction string `json:"direction"` // "next" or "prev" for pagination direction
 }
 
 type ParsedQueryPart struct {

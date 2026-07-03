@@ -2,6 +2,17 @@ import { ColumnDef } from "@tanstack/react-table";
 import { database } from "../../../../wailsjs/go/models";
 export const explorerTableColumns: ColumnDef<database.CollectionInfo>[] = [
   {
+    accessorKey: "id",
+    header: "#",
+    cell: ({ row }) => (
+      <span className="font-mono text-sm text-muted-foreground">
+        {row.index + 1}
+      </span>
+    ),
+    enableSorting: false,
+  },
+
+  {
     accessorKey: "name",
     header: "Collection Name",
     cell: ({ row }) => (

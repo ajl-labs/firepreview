@@ -21,9 +21,14 @@ import { Button } from "@/components/ui/button";
 interface ExplorerTableProps {
   data: database.CollectionInfo[];
   onSelect: (collection: database.CollectionInfo) => void;
+  loading?: boolean;
 }
 
-export const ExplorerTable = ({ data, onSelect }: ExplorerTableProps) => {
+export const ExplorerTable = ({
+  data,
+  onSelect,
+  loading,
+}: ExplorerTableProps) => {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const table = useReactTable({
     data,
@@ -42,7 +47,7 @@ export const ExplorerTable = ({ data, onSelect }: ExplorerTableProps) => {
   return (
     <div>
       <div className="overflow-hidden rounded-md border">
-        <Table>
+        <Table loading={loading}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>

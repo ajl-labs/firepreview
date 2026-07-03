@@ -15,11 +15,13 @@ export const ExplorerPage = () => {
 
   return (
     <div className="p-6 space-y-4">
+      {error && <p className="text-red-500">{error}</p>}
       <ExplorerTable
         data={collections}
         onSelect={(collection) => {
           navigate(`/collection/${encodeURIComponent(collection.id)}`);
         }}
+        loading={loading}
       />
     </div>
   );

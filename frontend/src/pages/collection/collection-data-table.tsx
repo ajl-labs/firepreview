@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
   flexRender,
   ColumnFiltersState,
   VisibilityState,
@@ -17,7 +16,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { database } from "../../../wailsjs/go/models";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -25,19 +23,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { QueryInput } from "@/components/QueryInput";
-
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-
 import { Button } from "@/components/ui/button";
 import { useCollectionStore } from "@/store/collection";
 import { Spinner } from "@/components/ui/spinner";
 import { CollectionDataViewDialog } from "./collection-data-view";
-import { CodeBlock } from "@/components/CodeBlock";
 
 interface CollectionDataTableProps {
   collectionName?: string;
@@ -47,21 +36,26 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   collectionName,
 }) => {
   const {
-    documents,
-    fields,
+    documents = [],
+    fields = [],
     fetchCollection,
-    hasMore,
-    nextPageToken,
-    loading,
+    nextPage,
+    prevPage,
+    page,
     pageSize,
+    total,
+    totalPages,
+    hasNext,
+    hasPrev,
+    loading,
     bulkDeleteDocuments,
   } = useCollectionStore((s) => s);
+
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
-  const [currentPageIndex, setCurrentPageIndex] = React.useState(0);
   const [currentDocument, setCurrentDocument] =
     React.useState<database.DocumentResult | null>(null);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
@@ -70,19 +64,14 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     data: documents,
     columns: buildCollectionTableColumns(fields),
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    manualPagination: true,
+    manualPagination: true, // paging is driven by the store, not react-table
     onRowSelectionChange: setRowSelection,
     state: {
       columnFilters,
       columnVisibility,
       rowSelection,
-      pagination: {
-        pageIndex: currentPageIndex,
-        pageSize,
-      },
     },
     getRowId: (row) => row.id,
   });
@@ -93,26 +82,13 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
         await fetchCollection(decodeURIComponent(collectionName), params);
       }
     },
-    [collectionName],
+    [collectionName, fetchCollection],
   );
 
-  const handleNextPage = () => {
-    if (hasMore) {
-      handleFetchData({ pageToken: nextPageToken });
-      setCurrentPageIndex((prevIndex) => prevIndex + 1);
-    }
-  };
-
-  const handlePreviousPage = () => {
-    if (currentPageIndex > 0) {
-      // For previous page, we need to fetch the collection again without a page token
-      handleFetchData({ pageToken: "" });
-      setCurrentPageIndex((prevIndex) => prevIndex - 1);
-    }
-  };
-
   const handleQuery = (query: string) => {
-    handleFetchData({ query, pageToken: "" });
+    // fetchCollection detects the query changed and resets to page 1 / clears
+    // the cursor stack internally — no manual page reset needed here.
+    handleFetchData({ query });
   };
 
   const handleDeleteSelected = async () => {
@@ -125,21 +101,26 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
         decodeURIComponent(collectionName),
         idsToDelete,
       );
+      setRowSelection({});
     }
-    handleFetchData({ pageToken: "" });
+    // bulkDeleteDocuments already refetches the current page internally —
+    // no extra fetch needed here.
   };
 
   useEffect(() => {
     handleFetchData();
   }, [collectionName]);
 
-  if (loading && documents.length === 0) {
+  if (loading && documents?.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full h-screen">
+      <div className="flex items-center justify-center h-screen">
         <Spinner className="size-8" />
       </div>
     );
   }
+
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
 
   return (
     <div>
@@ -154,7 +135,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
 
         {/* Right side: Placed cleanly at the end */}
         <div className="flex items-center gap-2">
-          {Object.values(rowSelection).length > 0 && (
+          {table.getSelectedRowModel().rows?.length > 0 && (
             <Button variant="destructive" onClick={handleDeleteSelected}>
               Delete
             </Button>
@@ -186,7 +167,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
         </div>
       </div>
       <div className="overflow-hidden rounded-md border">
-        <Table>
+        <Table loading={loading}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -206,15 +187,22 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            {table.getRowModel()?.rows?.length ? (
+              table.getRowModel()?.rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                   onClick={() => setCurrentDocument(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      onClick={
+                        cell.column.id === "select"
+                          ? (e) => e.stopPropagation()
+                          : undefined
+                      }
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
@@ -224,39 +212,49 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={documents.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
+              <TableCell
+                colSpan={table.getAllColumns().length || 1}
+                className="h-24 text-center"
+              >
+                No results.
+              </TableCell>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        {currentPageIndex !== 0 && (
+      <div className="flex items-center justify-between py-4">
+        <div className="text-sm text-muted-foreground">
+          {total > 0 ? (
+            <>
+              {start} - {end} of {total}
+              {totalPages > 0 && (
+                <span className="ml-2">
+                  (page {page} of {totalPages})
+                </span>
+              )}
+            </>
+          ) : (
+            "No results"
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={prevPage}
+            disabled={!hasPrev || loading}
           >
             Previous
           </Button>
-        )}
-        {hasMore && (
           <Button
             variant="outline"
             size="sm"
-            onClick={handleNextPage}
-            disabled={loading}
+            onClick={nextPage}
+            disabled={!hasNext || loading}
           >
             Next
           </Button>
-        )}
+        </div>
       </div>
     </div>
   );

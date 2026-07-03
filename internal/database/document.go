@@ -2,6 +2,8 @@ package database
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,10 +12,40 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+type cursor struct {
+	OrderValue interface{} `json:"o"`
+	DocID      string      `json:"id"`
+}
+
+func encodeCursor(c cursor) string {
+	b, _ := json.Marshal(c)
+	return base64.URLEncoding.EncodeToString(b)
+}
+
+func decodeCursor(s string) (cursor, error) {
+	var c cursor
+	b, err := base64.URLEncoding.DecodeString(s)
+	if err != nil {
+		return c, err
+	}
+	err = json.Unmarshal(b, &c)
+	return c, err
+}
+
 func (c *Client) GetCollection(ctx context.Context, collectionPath string, params QueryParams) (QueryResult, error) {
 	if err := c.ensure(); err != nil {
 		return QueryResult{}, err
 	}
+
+	collectionRef := c.database.Collection(collectionPath)
+
+	// 1. Total count via aggregation query (cheap, doesn't read docs)
+	countRes, err := collectionRef.NewAggregationQuery().WithCount("all").Get(ctx)
+	if err != nil {
+		return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+	}
+
+	total := extractCount(countRes)
 
 	query := c.database.Collection(collectionPath).Query
 
@@ -25,18 +57,78 @@ func (c *Client) GetCollection(ctx context.Context, collectionPath string, param
 		}
 	}
 	// if we have a cursor, start after that document
-	if params.PageToken != "" {
-		lastDocSnap, err := c.database.Collection(collectionPath).Doc(params.PageToken).Get(ctx)
+	if params.Cursor != "" {
+		cursorParams, err := decodeCursor(params.Cursor)
 		if err != nil {
 			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
 		}
-		query = query.StartAfter(lastDocSnap)
+		switch params.Direction {
+		case "next":
+			query = query.StartAfter(cursorParams.DocID).Limit(params.Limit)
+		case "prev":
+			query = query.EndBefore(cursorParams.DocID).LimitToLast(params.Limit)
+		default:
+			query = query.Limit(params.Limit)
+		}
+	}
+
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+	}
+
+	var items []DocumentResult
+	fields := make(map[string]FieldInfo)
+	for _, d := range docs {
+		data := d.Data()
+		data["id"] = d.Ref.ID
+		items = append(items, snapshotToResult(d))
+		// append the fields from this document to the fields map
+		for field := range data {
+			fields[field] = FieldInfo{
+				Name:  field,
+				Type:  "string", // Placeholder, you might want to determine the actual type
+				Count: fields[field].Count + 1,
+			}
+		}
+	}
+
+	fieldList := make([]FieldInfo, 0, len(fields))
+	for _, fieldInfo := range fields {
+		fieldList = append(fieldList, fieldInfo)
+	}
+
+	resp := QueryResult{
+		Documents: items,
+		Total:     total,
+		Limit:     params.Limit,
+		Fields:    fieldList,
 	}
 
 	if params.Limit > 0 {
-		query = query.Limit(params.Limit)
+		resp.TotalPages = int((total + int64(params.Limit) - 1) / int64(params.Limit))
 	}
-	return c.runQuery(ctx, query, params.Limit)
+
+	if len(docs) > 0 {
+		first := docs[0]
+		last := docs[len(docs)-1]
+
+		resp.PrevCursor = encodeCursor(cursor{
+			// OrderValue: first.Data()[orderField],
+			DocID: first.Ref.ID,
+		})
+		resp.NextCursor = encodeCursor(cursor{
+			// OrderValue: last.Data()[orderField],
+			DocID: last.Ref.ID,
+		})
+	}
+
+	// hasNext/hasPrev: cheap heuristic — if we got a full page there's
+	// likely a next page; refine with an extra existence check if needed.
+	resp.HasNext = int64(len(docs)) == int64(params.Limit)
+	resp.HasPrev = params.Cursor != "" // frontend tracks real prev state via its cursor stack
+
+	return resp, nil
 }
 
 func (c *Client) GetDocument(ctx context.Context, docPath string) (DocumentResult, error) {
@@ -71,15 +163,15 @@ func (c *Client) QueryCollection(
 		q = q.Limit(params.Limit)
 	}
 
-	return c.runQuery(ctx, q, params.Limit)
+	return c.runQuery(ctx, q, params.Limit, 0)
 }
 
-func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int) (QueryResult, error) {
+func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int, total int64) (QueryResult, error) {
 	iter := query.Documents(ctx)
 	defer iter.Stop()
 
 	var docs []DocumentResult
-	var lastDocId string
+	// var lastDocId string
 
 	fields := make(map[string]FieldInfo)
 	for {
@@ -104,7 +196,7 @@ func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int)
 		// Append the document result to the docs slice
 		docs = append(docs, snapshotToResult(snap))
 		// Update the lastDocId to the current snapshot
-		lastDocId = snap.Ref.ID
+		// lastDocId = snap.Ref.ID
 	}
 
 	fieldList := make([]FieldInfo, 0, len(fields))
@@ -121,16 +213,15 @@ func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int)
 
 	})
 
-	nextPageToken := ""
-	if len(docs) == limit {
-		nextPageToken = lastDocId
-	}
+	// nextPageToken := ""
+	// if len(docs) == limit {
+	// 	nextPageToken = lastDocId
+	// }
 
 	return QueryResult{
-		Documents:     docs,
-		Total:         len(docs),
-		Fields:        fieldList,
-		NextPageToken: nextPageToken,
+		Documents: docs,
+		Total:     total,
+		Fields:    fieldList,
 	}, nil
 }
 
@@ -174,6 +265,46 @@ func (c *Client) BulkDeleteDocuments(ctx context.Context, collectionName string,
 	return nil
 }
 
+func (c *Client) GetCollectionFields(collectionName string) ([]string, error) {
+	if c.database == nil {
+		return nil, fmt.Errorf("not connected to a database")
+	}
+	if collectionName == "" {
+		return nil, fmt.Errorf("collection name is required")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*1e9) // 10s
+	defer cancel()
+
+	const sampleSize = 20
+
+	iter := c.database.Collection(collectionName).Limit(sampleSize).Documents(ctx)
+	defer iter.Stop()
+
+	fieldSet := make(map[string]struct{})
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("iterating documents: %w", err)
+		}
+
+		for field := range doc.Data() {
+			fieldSet[field] = struct{}{}
+		}
+	}
+
+	fields := make([]string, 0, len(fieldSet))
+	for field := range fieldSet {
+		fields = append(fields, field)
+	}
+	sort.Strings(fields)
+
+	return fields, nil
+}
 func applyQuery(query firestore.Query, queryStr string) (firestore.Query, error) {
 	parsedParts, err := parseQuery(queryStr)
 	if err != nil {
@@ -213,4 +344,17 @@ func snapshotToResult(snap *firestore.DocumentSnapshot) DocumentResult {
 		Path:   snap.Ref.Path,
 		Fields: snap.Data(),
 	}
+}
+
+func extractCount(res firestore.AggregationResult) int64 {
+	v, ok := res["all"]
+	if !ok {
+		return 0
+	}
+	// firestorepb.Value under the hood; the Go SDK exposes it via GetIntegerValue()
+	if pv, ok := v.(interface{ GetIntegerValue() int64 }); ok {
+		return pv.GetIntegerValue()
+	}
+	fmt.Println("unexpected aggregation result type")
+	return 0
 }

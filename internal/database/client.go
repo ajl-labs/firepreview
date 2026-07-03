@@ -16,6 +16,7 @@ func New() *Client {
 }
 
 func (c *Client) Connect(ctx context.Context, config ConnectionConfig) error {
+	fmt.Println("Connecting to Firestore with config:", config)
 	if config.ProjectID == "" {
 		return fmt.Errorf("project ID is required")
 	}
@@ -23,11 +24,13 @@ func (c *Client) Connect(ctx context.Context, config ConnectionConfig) error {
 	var app *firestore.App
 	var err error
 
-	if os.Getenv("FIRESTORE_EMULATOR_HOST") != "" {
+	if config.UseEmulator {
+		os.Setenv("FIRESTORE_EMULATOR_HOST", config.EmulatorHost)
 		app, err = firestore.NewApp(ctx, &firestore.Config{
 			ProjectID: config.ProjectID,
-		})
+		}, option.WithoutAuthentication())
 	} else {
+
 		if config.CredentialsPath == "" {
 			return fmt.Errorf("credentialsPath is required for remote connection")
 		}
@@ -57,7 +60,6 @@ func (c *Client) Disconnect() {
 		c.database = nil
 		c.config = ConnectionConfig{}
 	}
-
 }
 
 // IsConnected returns true if a client is active

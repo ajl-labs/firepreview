@@ -3,6 +3,7 @@ import { ExplorerPage } from "./explorer";
 import { AuthScreen } from "./auth";
 import { useDatabaseStore } from "@/store/database";
 import { CollectionPage } from "./collection";
+import { RouteErrorBoundary } from "./Error";
 
 export const ProtectedRoute = () => {
   const connected = useDatabaseStore((s) => s.connected);
@@ -12,6 +13,7 @@ export const ProtectedRoute = () => {
 export const router = createHashRouter([
   { path: "/auth", element: <AuthScreen /> },
   {
+    errorElement: <RouteErrorBoundary />,
     element: <ProtectedRoute />,
     children: [
       {
