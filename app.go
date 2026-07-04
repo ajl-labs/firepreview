@@ -65,20 +65,6 @@ func (a *App) GetDocument(docPath string) (database.DocumentResult, error) {
 	return a.db.GetDocument(a.ctx, docPath)
 }
 
-func (a *App) QueryCollection(
-	collectionPath string,
-	field string,
-	operator string,
-	value interface{},
-	params database.QueryParams,
-) (database.QueryResult, error) {
-	return a.db.QueryCollection(a.ctx, collectionPath, field, operator, value, params)
-}
-
 func (a *App) BulkDeleteDocuments(collectionPath string, docIDs []string) error {
 	return a.db.BulkDeleteDocuments(a.ctx, collectionPath, docIDs)
-}
-
-func (a *App) GetCollectionFields(collectionPath string) ([]string, error) {
-	return a.db.GetCollectionFields(collectionPath)
 }

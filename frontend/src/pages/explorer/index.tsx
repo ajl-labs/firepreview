@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useExplorerStore } from "@/store/explorer";
 import { ExplorerTable } from "./components/explorer-table";
 import { useNavigate } from "react-router";
+import { PageContainer } from "@/components/PageContainer";
 
 export const ExplorerPage = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export const ExplorerPage = () => {
   }, []);
 
   return (
-    <div className="p-6 space-y-4">
+    <PageContainer title="Explorer" subtitle="Collections">
       {error && <p className="text-red-500">{error}</p>}
       <ExplorerTable
         data={collections}
@@ -23,6 +24,6 @@ export const ExplorerPage = () => {
         }}
         loading={loading}
       />
-    </div>
+    </PageContainer>
   );
 };

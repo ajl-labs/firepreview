@@ -28,12 +28,12 @@ export const staticColumns: ColumnDef<database.DocumentResult>[] = [
 ];
 
 export const buildCollectionTableColumns = (
-  fields: database.FieldInfo[] = [],
+  fields: database.CollectionDocFieldInfo[] = [],
 ): ColumnDef<database.DocumentResult>[] => {
   const fieldColumns: ColumnDef<database.DocumentResult>[] = fields.map(
     (field) => ({
       id: field.name,
-      header: field.name.charAt(0).toUpperCase() + field.name.slice(1),
+      header: field.name,
       accessorFn: (row) => {
         const value = row.fields?.[field.name];
         if (value === null || value === undefined) return "";

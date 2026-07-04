@@ -1,5 +1,21 @@
 export namespace database {
 	
+	export class CollectionDocFieldInfo {
+	    name: string;
+	    type: string;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CollectionDocFieldInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.count = source["count"];
+	    }
+	}
 	export class CollectionInfo {
 	    id: string;
 	    path: string;
@@ -48,22 +64,6 @@ export namespace database {
 	        this.fields = source["fields"];
 	    }
 	}
-	export class FieldInfo {
-	    name: string;
-	    type: string;
-	    count: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new FieldInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.type = source["type"];
-	        this.count = source["count"];
-	    }
-	}
 	export class QueryParams {
 	    limit: number;
 	    docId: string;
@@ -85,7 +85,7 @@ export namespace database {
 	export class QueryResult {
 	    documents: DocumentResult[];
 	    total: number;
-	    fields: FieldInfo[];
+	    fields: CollectionDocFieldInfo[];
 	    page: number;
 	    pageSize: number;
 	    totalPages: number;
@@ -102,7 +102,7 @@ export namespace database {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.documents = this.convertValues(source["documents"], DocumentResult);
 	        this.total = source["total"];
-	        this.fields = this.convertValues(source["fields"], FieldInfo);
+	        this.fields = this.convertValues(source["fields"], CollectionDocFieldInfo);
 	        this.page = source["page"];
 	        this.pageSize = source["pageSize"];
 	        this.totalPages = source["totalPages"];

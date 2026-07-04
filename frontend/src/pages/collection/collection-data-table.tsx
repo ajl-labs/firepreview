@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
   ColumnFiltersState,
   VisibilityState,
+  ColumnDef,
 } from "@tanstack/react-table";
 import { buildCollectionTableColumns } from "./collection-table-columns";
 import {
@@ -24,12 +25,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { QueryInput } from "@/components/QueryInput";
 import { Button } from "@/components/ui/button";
-import { useCollectionStore } from "@/store/collection";
+import { useCollection } from "./useCollection";
 import { Spinner } from "@/components/ui/spinner";
 import { CollectionDataViewDialog } from "./collection-data-view";
+import { Ellipsis } from "lucide-react";
 
 interface CollectionDataTableProps {
-  collectionName?: string;
+  collectionName: string;
 }
 
 export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
@@ -48,8 +50,9 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     hasNext,
     hasPrev,
     loading,
+    query,
     bulkDeleteDocuments,
-  } = useCollectionStore((s) => s);
+  } = useCollection(collectionName);
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
@@ -60,9 +63,33 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     React.useState<database.DocumentResult | null>(null);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
+  const viewColumn: ColumnDef<database.DocumentResult> = useMemo(
+    () => ({
+      id: "view",
+      header: "View",
+      size: 48,
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation(); // don't also trigger the row's own onClick
+            setCurrentDocument(row.original);
+          }}
+        >
+          <Ellipsis className="size-4" />
+        </Button>
+      ),
+    }),
+    [],
+  );
+
   const table = useReactTable({
     data: documents,
-    columns: buildCollectionTableColumns(fields),
+    columns: useMemo(
+      () => [...buildCollectionTableColumns(fields), viewColumn],
+      [fields, viewColumn],
+    ),
     getCoreRowModel: getCoreRowModel(),
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -79,7 +106,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   const handleFetchData = useCallback(
     async (params?: Partial<database.QueryParams>) => {
       if (collectionName) {
-        await fetchCollection(decodeURIComponent(collectionName), params);
+        await fetchCollection(collectionName, params);
       }
     },
     [collectionName, fetchCollection],
@@ -97,15 +124,25 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
       .rows.map((row) => row.original)
       ?.map((doc) => doc.id);
     if (idsToDelete.length > 0 && collectionName) {
-      await bulkDeleteDocuments(
-        decodeURIComponent(collectionName),
-        idsToDelete,
-      );
+      await bulkDeleteDocuments(collectionName, idsToDelete);
       setRowSelection({});
     }
-    // bulkDeleteDocuments already refetches the current page internally —
-    // no extra fetch needed here.
   };
+
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent, doc: database.DocumentResult) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.closest(
+          'button, a, input, [role="checkbox"], [data-no-row-click]',
+        )
+      ) {
+        return;
+      }
+      setCurrentDocument(doc);
+    },
+    [],
+  );
 
   useEffect(() => {
     handleFetchData();
@@ -166,14 +203,22 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
           </DropdownMenu>
         </div>
       </div>
+
       <div className="overflow-hidden rounded-md border">
-        <Table loading={loading}>
+        <Table loading={loading && !documents.length && query === ""}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className={
+                        header.column.id === "view"
+                          ? "sticky right-0 z-10 bg-background shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]"
+                          : undefined
+                      }
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -192,15 +237,16 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => setCurrentDocument(row.original)}
+                  onClick={(e) => handleRowClick(e, row.original)}
+                  className="cursor-pointer"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      onClick={
-                        cell.column.id === "select"
-                          ? (e) => e.stopPropagation()
-                          : undefined
+                      className={
+                        cell.column.id === "view"
+                          ? "sticky right-0 z-10 bg-background shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]"
+                          : "max-w-100 overflow-hidden text-ellipsis whitespace-nowrap"
                       }
                     >
                       {flexRender(
@@ -212,12 +258,14 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
                 </TableRow>
               ))
             ) : (
-              <TableCell
-                colSpan={table.getAllColumns().length || 1}
-                className="h-24 text-center"
-              >
-                No results.
-              </TableCell>
+              <TableRow>
+                <TableCell
+                  colSpan={table.getAllColumns().length || 1}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>

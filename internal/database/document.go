@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"cloud.google.com/go/firestore"
-	"google.golang.org/api/iterator"
 )
 
 type cursor struct {
@@ -32,179 +31,12 @@ func decodeCursor(s string) (cursor, error) {
 	return c, err
 }
 
-func (c *Client) GetCollection(ctx context.Context, collectionPath string, params QueryParams) (QueryResult, error) {
-	if err := c.ensure(); err != nil {
-		return QueryResult{}, err
-	}
-
-	collectionRef := c.database.Collection(collectionPath)
-
-	// 1. Total count via aggregation query (cheap, doesn't read docs)
-	countRes, err := collectionRef.NewAggregationQuery().WithCount("all").Get(ctx)
-	if err != nil {
-		return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
-	}
-
-	total := extractCount(countRes)
-
-	query := c.database.Collection(collectionPath).Query
-
-	if params.Query != "" {
-		var err error
-		query, err = applyQuery(query, params.Query)
-		if err != nil {
-			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
-		}
-	}
-	// if we have a cursor, start after that document
-	if params.Cursor != "" {
-		cursorParams, err := decodeCursor(params.Cursor)
-		if err != nil {
-			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
-		}
-		switch params.Direction {
-		case "next":
-			query = query.StartAfter(cursorParams.DocID).Limit(params.Limit)
-		case "prev":
-			query = query.EndBefore(cursorParams.DocID).LimitToLast(params.Limit)
-		default:
-			query = query.Limit(params.Limit)
-		}
-	}
-
-	docs, err := query.Documents(ctx).GetAll()
-	if err != nil {
-		return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
-	}
-
-	var items []DocumentResult
-	fields := make(map[string]FieldInfo)
-	for _, d := range docs {
-		data := d.Data()
-		data["id"] = d.Ref.ID
-		items = append(items, snapshotToResult(d))
-		// append the fields from this document to the fields map
-		for field := range data {
-			fields[field] = FieldInfo{
-				Name:  field,
-				Type:  "string", // Placeholder, you might want to determine the actual type
-				Count: fields[field].Count + 1,
-			}
-		}
-	}
-
-	fieldList := make([]FieldInfo, 0, len(fields))
+func buildCollectionFields(fields map[string]CollectionDocFieldInfo) []CollectionDocFieldInfo {
+	fieldList := make([]CollectionDocFieldInfo, 0, len(fields))
 	for _, fieldInfo := range fields {
 		fieldList = append(fieldList, fieldInfo)
 	}
 
-	resp := QueryResult{
-		Documents: items,
-		Total:     total,
-		Limit:     params.Limit,
-		Fields:    fieldList,
-	}
-
-	if params.Limit > 0 {
-		resp.TotalPages = int((total + int64(params.Limit) - 1) / int64(params.Limit))
-	}
-
-	if len(docs) > 0 {
-		first := docs[0]
-		last := docs[len(docs)-1]
-
-		resp.PrevCursor = encodeCursor(cursor{
-			// OrderValue: first.Data()[orderField],
-			DocID: first.Ref.ID,
-		})
-		resp.NextCursor = encodeCursor(cursor{
-			// OrderValue: last.Data()[orderField],
-			DocID: last.Ref.ID,
-		})
-	}
-
-	// hasNext/hasPrev: cheap heuristic — if we got a full page there's
-	// likely a next page; refine with an extra existence check if needed.
-	resp.HasNext = int64(len(docs)) == int64(params.Limit)
-	resp.HasPrev = params.Cursor != "" // frontend tracks real prev state via its cursor stack
-
-	return resp, nil
-}
-
-func (c *Client) GetDocument(ctx context.Context, docPath string) (DocumentResult, error) {
-	if err := c.ensure(); err != nil {
-		return DocumentResult{}, err
-	}
-
-	snap, err := c.database.Doc(docPath).Get(ctx)
-
-	if err != nil {
-		return DocumentResult{}, fmt.Errorf("GetDocument %q: %w", docPath, err)
-	}
-	return snapshotToResult(snap), nil
-}
-
-// QueryCollection runs a single where filter on a collection.
-// operator examples: "==", ">", "<", ">=", "<=", "array-contains"
-func (c *Client) QueryCollection(
-	ctx context.Context,
-	collectionPath string,
-	field string,
-	operator string,
-	value interface{},
-	params QueryParams,
-) (QueryResult, error) {
-	if err := c.ensure(); err != nil {
-		return QueryResult{}, err
-	}
-
-	q := c.database.Collection(collectionPath).Where(field, operator, value)
-	if params.Limit > 0 {
-		q = q.Limit(params.Limit)
-	}
-
-	return c.runQuery(ctx, q, params.Limit, 0)
-}
-
-func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int, total int64) (QueryResult, error) {
-	iter := query.Documents(ctx)
-	defer iter.Stop()
-
-	var docs []DocumentResult
-	// var lastDocId string
-
-	fields := make(map[string]FieldInfo)
-	for {
-		snap, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-
-		if err != nil {
-			return QueryResult{}, fmt.Errorf("runQuery: %w", err)
-		}
-
-		// append the fields from this document to the fields map
-		for field := range snap.Data() {
-			fields[field] = FieldInfo{
-				Name:  field,
-				Type:  "string", // Placeholder, you might want to determine the actual type
-				Count: fields[field].Count + 1,
-			}
-		}
-
-		// Append the document result to the docs slice
-		docs = append(docs, snapshotToResult(snap))
-		// Update the lastDocId to the current snapshot
-		// lastDocId = snap.Ref.ID
-	}
-
-	fieldList := make([]FieldInfo, 0, len(fields))
-	for _, fieldInfo := range fields {
-		fieldList = append(fieldList, fieldInfo)
-	}
-
-	// Sort by field name, then by count
 	sort.Slice(fieldList, func(i, j int) bool {
 		if fieldList[i].Count == fieldList[j].Count {
 			return fieldList[i].Name < fieldList[j].Name
@@ -212,99 +44,9 @@ func (c *Client) runQuery(ctx context.Context, query firestore.Query, limit int,
 		return fieldList[i].Count > fieldList[j].Count
 
 	})
-
-	// nextPageToken := ""
-	// if len(docs) == limit {
-	// 	nextPageToken = lastDocId
-	// }
-
-	return QueryResult{
-		Documents: docs,
-		Total:     total,
-		Fields:    fieldList,
-	}, nil
+	return fieldList
 }
 
-func (c *Client) BulkDeleteDocuments(ctx context.Context, collectionName string, docIDs []string) error {
-	fmt.Println("BulkDeleteDocuments called with paths:", docIDs) // Debugging line
-	if err := c.ensure(); err != nil {
-		return err
-	}
-
-	bw := c.database.BulkWriter(ctx)
-
-	type deleteJob struct {
-		docID string
-		job   *firestore.BulkWriterJob
-	}
-	jobs := make([]deleteJob, 0, len(docIDs))
-
-	for _, id := range docIDs {
-		docRef := c.database.Collection(collectionName).Doc(id)
-
-		job, err := bw.Delete(docRef)
-		if err != nil {
-			return fmt.Errorf("failed to enqueue delete for %s/%s: %w", collectionName, id, err)
-		}
-		jobs = append(jobs, deleteJob{docID: id, job: job})
-	}
-
-	bw.End() // flushes all queued writes
-
-	var errs []error
-	for _, j := range jobs {
-		if _, err := j.job.Results(); err != nil {
-			errs = append(errs, fmt.Errorf("delete failed for %s/%s: %w", collectionName, j.docID, err))
-		}
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("some deletes failed: %v", errs)
-	}
-
-	return nil
-}
-
-func (c *Client) GetCollectionFields(collectionName string) ([]string, error) {
-	if c.database == nil {
-		return nil, fmt.Errorf("not connected to a database")
-	}
-	if collectionName == "" {
-		return nil, fmt.Errorf("collection name is required")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*1e9) // 10s
-	defer cancel()
-
-	const sampleSize = 20
-
-	iter := c.database.Collection(collectionName).Limit(sampleSize).Documents(ctx)
-	defer iter.Stop()
-
-	fieldSet := make(map[string]struct{})
-
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("iterating documents: %w", err)
-		}
-
-		for field := range doc.Data() {
-			fieldSet[field] = struct{}{}
-		}
-	}
-
-	fields := make([]string, 0, len(fieldSet))
-	for field := range fieldSet {
-		fields = append(fields, field)
-	}
-	sort.Strings(fields)
-
-	return fields, nil
-}
 func applyQuery(query firestore.Query, queryStr string) (firestore.Query, error) {
 	parsedParts, err := parseQuery(queryStr)
 	if err != nil {
@@ -347,7 +89,7 @@ func snapshotToResult(snap *firestore.DocumentSnapshot) DocumentResult {
 }
 
 func extractCount(res firestore.AggregationResult) int64 {
-	v, ok := res["all"]
+	v, ok := res["count"]
 	if !ok {
 		return 0
 	}
@@ -357,4 +99,166 @@ func extractCount(res firestore.AggregationResult) int64 {
 	}
 	fmt.Println("unexpected aggregation result type")
 	return 0
+}
+
+func (c *Client) GetCollection(ctx context.Context, collectionPath string, params QueryParams) (QueryResult, error) {
+	if err := c.ensure(); err != nil {
+		return QueryResult{}, err
+	}
+
+	// 1. start building the query, and apply any filters from params.Query
+	query := c.database.Collection(collectionPath).Query
+	if params.Query != "" {
+		var err error
+		query, err = applyQuery(query, params.Query)
+		if err != nil {
+			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+		}
+	}
+
+	// 2. Total count via aggregation query (cheap, doesn't read docs)
+	countRes, err := query.NewAggregationQuery().WithCount("count").Get(ctx)
+	if err != nil {
+		return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+	}
+	total := extractCount(countRes)
+
+	// 3. always order by __name__ ascending — never Desc, never LimitToLast.
+	// Firestore's document-ID-only index does not support descending/reverse
+	// scans, which is what LimitToLast does internally under the hood. Instead,
+	// "prev" is just another forward (StartAfter) query using the cursor for
+	// the previous page, which the frontend already tracks in its cursor stack.
+	query = query.OrderBy(firestore.DocumentID, firestore.Asc)
+
+	// fetch one extra to check for next page
+	plusOneLimit := params.Limit + 1
+
+	// Both "next" and "prev" resolve to a forward StartAfter query — the only
+	// difference is which cursor the caller sends. An empty cursor means "first
+	// page". There is no direction-based branching here anymore.
+	if params.Cursor != "" {
+		cursorParams, err := decodeCursor(params.Cursor)
+		if err != nil {
+			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+		}
+		query = query.StartAfter(cursorParams.DocID).Limit(plusOneLimit)
+	} else {
+		query = query.Limit(plusOneLimit)
+	}
+
+	docsWithExtra, err := query.Documents(ctx).GetAll()
+
+	if err != nil {
+		return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+	}
+
+	docs := docsWithExtra
+	if len(docsWithExtra) > params.Limit {
+		docs = docsWithExtra[:len(docsWithExtra)-1]
+	} // exclude the extra doc used for hasNext/hasPrev check
+
+	var items []DocumentResult
+	fields := make(map[string]CollectionDocFieldInfo)
+	for _, d := range docs { // exclude the extra doc used for hasNext/hasPrev check
+		data := d.Data()
+		data["id"] = d.Ref.ID
+		items = append(items, snapshotToResult(d))
+		// append the fields from this document to the fields map
+		for field := range data {
+			fields[field] = CollectionDocFieldInfo{
+				Name:  field,
+				Type:  "string", // Placeholder, you might want to determine the actual type
+				Count: fields[field].Count + 1,
+			}
+		}
+	}
+
+	response := QueryResult{
+		Documents: items,
+		Total:     total,
+		Limit:     params.Limit,
+		Fields:    buildCollectionFields(fields),
+	}
+
+	if params.Limit > 0 {
+		response.TotalPages = int((total + int64(params.Limit) - 1) / int64(params.Limit))
+	}
+
+	if len(docs) > 0 {
+		fmt.Println(docs[0], docs[len(docs)-1])
+		first := docs[0]
+		last := docs[len(docs)-1]
+
+		response.PrevCursor = encodeCursor(cursor{
+			// OrderValue: first.Data()[orderField],
+			DocID: first.Ref.ID,
+		})
+		response.NextCursor = encodeCursor(cursor{
+			// OrderValue: last.Data()[orderField],
+			DocID: last.Ref.ID,
+		})
+	}
+
+	fmt.Println("reached to the final point")
+
+	fmt.Println(len(docsWithExtra), plusOneLimit)
+	// hasNext/hasPrev: cheap heuristic — if we got a full page there's
+	// likely a next page; refine with an extra existence check if needed.
+	response.HasNext = int64(len(docsWithExtra)) == int64(plusOneLimit)
+	response.HasPrev = params.Cursor != "" // frontend tracks real prev state via its cursor stack
+
+	return response, nil
+}
+
+func (c *Client) GetDocument(ctx context.Context, docPath string) (DocumentResult, error) {
+	if err := c.ensure(); err != nil {
+		return DocumentResult{}, err
+	}
+
+	snap, err := c.database.Doc(docPath).Get(ctx)
+
+	if err != nil {
+		return DocumentResult{}, fmt.Errorf("GetDocument %q: %w", docPath, err)
+	}
+	return snapshotToResult(snap), nil
+}
+
+func (c *Client) BulkDeleteDocuments(ctx context.Context, collectionName string, docIDs []string) error {
+	fmt.Println("BulkDeleteDocuments called with paths:", docIDs) // Debugging line
+	if err := c.ensure(); err != nil {
+		return err
+	}
+
+	bw := c.database.BulkWriter(ctx)
+
+	type deleteJob struct {
+		docID string
+		job   *firestore.BulkWriterJob
+	}
+	jobs := make([]deleteJob, 0, len(docIDs))
+
+	for _, id := range docIDs {
+		docRef := c.database.Collection(collectionName).Doc(id)
+
+		job, err := bw.Delete(docRef)
+		if err != nil {
+			return fmt.Errorf("failed to enqueue delete for %s/%s: %w", collectionName, id, err)
+		}
+		jobs = append(jobs, deleteJob{docID: id, job: job})
+	}
+
+	bw.End() // flushes all queued writes
+
+	var errs []error
+	for _, j := range jobs {
+		if _, err := j.job.Results(); err != nil {
+			errs = append(errs, fmt.Errorf("delete failed for %s/%s: %w", collectionName, j.docID, err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("some deletes failed: %v", errs)
+	}
+
+	return nil
 }

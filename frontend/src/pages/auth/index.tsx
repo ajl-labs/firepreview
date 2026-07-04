@@ -1,37 +1,3 @@
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Spinner } from "@/components/ui/spinner";
-// import { useDatabaseStore } from "@/store/database";
-// import { useNavigate } from "react-router";
-
-// export const AuthScreen = () => {
-//   const navigate = useNavigate();
-//   const database = useDatabaseStore((state) => state);
-
-//   const handleSignIn = async () => {
-//     await database.connect({
-//       credentialsPath: "path/to/your/serviceAccountKey.json",
-//       projectId: "tupandeonline-dev",
-//       useEmulator: true,
-//     });
-//     navigate("/");
-//   };
-
-//   return (
-//     <div className="flex flex-col items-center justify-center h-screen gap-4">
-//       <Input className="w-1/3" placeholder="path to serviceAccount.json" />
-//       <Button
-//         onClick={handleSignIn}
-//         disabled={database.connecting}
-//         className="w-1/3"
-//       >
-//         {database.connecting ? <Spinner data-icon="inline-start" /> : null}
-//         Connect to Firestore
-//       </Button>
-//     </div>
-//   );
-// };
-
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import * as z from "zod";

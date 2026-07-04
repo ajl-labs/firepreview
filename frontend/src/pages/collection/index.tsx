@@ -1,19 +1,20 @@
 import { useParams } from "react-router";
 import { PageHeader } from "@/components/PageHeader";
 import { CollectionDataTable } from "./collection-data-table";
+import { PageContainer } from "@/components/PageContainer";
 
 export const CollectionPage = () => {
   const { collectionName } = useParams<{ collectionName: string }>();
 
   return (
-    <div className="p-6 space-y-4">
-      <PageHeader
-        title={decodeURIComponent(collectionName ?? "")}
-        subtitle="Collection"
-        backTo="/"
+    <PageContainer
+      title={decodeURIComponent(collectionName ?? "")}
+      subtitle="Collection"
+      backTo="/"
+    >
+      <CollectionDataTable
+        collectionName={decodeURIComponent(collectionName ?? "")}
       />
-      {/* document table goes here next */}
-      <CollectionDataTable collectionName={collectionName} />
-    </div>
+    </PageContainer>
   );
 };

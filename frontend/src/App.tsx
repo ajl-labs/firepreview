@@ -2,7 +2,6 @@ import "./App.css";
 import { RouterProvider } from "react-router";
 import { router } from "./pages/router";
 import { useEffect } from "react";
-import { IsDatabaseConnected } from "../wailsjs/go/main/App";
 import { useDatabaseStore } from "./store/database";
 
 const App = () => {
@@ -27,15 +26,11 @@ const App = () => {
     // 4. Listen for real-time OS system theme changes
     mediaQuery.addEventListener("change", handleThemeChange);
 
-    // test greet function from Go backend
-    IsDatabaseConnected().then((connected: boolean) => {
-      console.log("Is database connected?", connected);
-    });
     // Cleanup listener on unmount
     return () => mediaQuery.removeEventListener("change", handleThemeChange);
   }, []);
 
-  return <RouterProvider router={router} />;
+  return <RouterProvider router={router} useTransitions />;
 };
 
 export default App;

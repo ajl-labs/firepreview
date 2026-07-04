@@ -11,7 +11,7 @@ interface DatabaseStore {
   connecting: boolean;
   error: string | null;
   connect: (config: database.ConnectionConfig) => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
 
@@ -36,8 +36,8 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
     }
   },
 
-  disconnect: () => {
-    DisconnectFirestore();
+  disconnect: async () => {
+    await DisconnectFirestore();
     set({ connected: false, error: null });
   },
 }));

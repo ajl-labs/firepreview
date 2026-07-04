@@ -15,23 +15,23 @@ type DocumentResult struct {
 	Fields map[string]interface{} `json:"fields"`
 }
 
-type FieldInfo struct {
+type CollectionDocFieldInfo struct {
 	Name  string `json:"name"`
 	Type  string `json:"type"`
 	Count int    `json:"count"`
 }
 
 type QueryResult struct {
-	Documents  []DocumentResult `json:"documents"`
-	Total      int64            `json:"total"`
-	Fields     []FieldInfo      `json:"fields"`
-	Page       int              `json:"page"`
-	Limit      int              `json:"pageSize"`
-	TotalPages int              `json:"totalPages"`
-	NextCursor string           `json:"nextCursor,omitempty"`
-	PrevCursor string           `json:"prevCursor,omitempty"`
-	HasNext    bool             `json:"hasNext"`
-	HasPrev    bool             `json:"hasPrev"`
+	Documents  []DocumentResult         `json:"documents"`
+	Total      int64                    `json:"total"`
+	Fields     []CollectionDocFieldInfo `json:"fields"`
+	Page       int                      `json:"page"`
+	Limit      int                      `json:"pageSize"`
+	TotalPages int                      `json:"totalPages"`
+	NextCursor string                   `json:"nextCursor,omitempty"`
+	PrevCursor string                   `json:"prevCursor,omitempty"`
+	HasNext    bool                     `json:"hasNext"`
+	HasPrev    bool                     `json:"hasPrev"`
 }
 
 type CollectionInfo struct {

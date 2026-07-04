@@ -18,10 +18,6 @@ export function GetCollection(arg1, arg2) {
   return window['go']['main']['App']['GetCollection'](arg1, arg2);
 }
 
-export function GetCollectionFields(arg1) {
-  return window['go']['main']['App']['GetCollectionFields'](arg1);
-}
-
 export function GetDocument(arg1) {
   return window['go']['main']['App']['GetDocument'](arg1);
 }
@@ -36,8 +32,4 @@ export function IsDatabaseConnected() {
 
 export function ListCollections() {
   return window['go']['main']['App']['ListCollections']();
-}
-
-export function QueryCollection(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['QueryCollection'](arg1, arg2, arg3, arg4, arg5);
 }

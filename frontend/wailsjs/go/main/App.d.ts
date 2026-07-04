@@ -10,8 +10,6 @@ export function DisconnectFirestore():Promise<void>;
 
 export function GetCollection(arg1:string,arg2:database.QueryParams):Promise<database.QueryResult>;
 
-export function GetCollectionFields(arg1:string):Promise<Array<string>>;
-
 export function GetDocument(arg1:string):Promise<database.DocumentResult>;
 
 export function Greet(arg1:string):Promise<string>;
@@ -19,5 +17,3 @@ export function Greet(arg1:string):Promise<string>;
 export function IsDatabaseConnected():Promise<boolean>;
 
 export function ListCollections():Promise<Array<database.CollectionInfo>>;
-
-export function QueryCollection(arg1:string,arg2:string,arg3:string,arg4:any,arg5:database.QueryParams):Promise<database.QueryResult>;
