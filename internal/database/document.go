@@ -97,7 +97,6 @@ func extractCount(res firestore.AggregationResult) int64 {
 	if pv, ok := v.(interface{ GetIntegerValue() int64 }); ok {
 		return pv.GetIntegerValue()
 	}
-	fmt.Println("unexpected aggregation result type")
 	return 0
 }
 
@@ -185,7 +184,6 @@ func (c *Client) GetCollection(ctx context.Context, collectionPath string, param
 	}
 
 	if len(docs) > 0 {
-		fmt.Println(docs[0], docs[len(docs)-1])
 		first := docs[0]
 		last := docs[len(docs)-1]
 
@@ -199,9 +197,6 @@ func (c *Client) GetCollection(ctx context.Context, collectionPath string, param
 		})
 	}
 
-	fmt.Println("reached to the final point")
-
-	fmt.Println(len(docsWithExtra), plusOneLimit)
 	// hasNext/hasPrev: cheap heuristic — if we got a full page there's
 	// likely a next page; refine with an extra existence check if needed.
 	response.HasNext = int64(len(docsWithExtra)) == int64(plusOneLimit)
@@ -224,7 +219,6 @@ func (c *Client) GetDocument(ctx context.Context, docPath string) (DocumentResul
 }
 
 func (c *Client) BulkDeleteDocuments(ctx context.Context, collectionName string, docIDs []string) error {
-	fmt.Println("BulkDeleteDocuments called with paths:", docIDs) // Debugging line
 	if err := c.ensure(); err != nil {
 		return err
 	}
