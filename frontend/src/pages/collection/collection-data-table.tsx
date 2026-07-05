@@ -40,6 +40,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   const {
     documents = [],
     fields = [],
+    error,
     fetchCollection,
     nextPage,
     prevPage,
@@ -165,10 +166,17 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
         document={currentDocument}
         onClose={() => setCurrentDocument(null)}
       />
-      <QueryInput onQuery={handleQuery} fields={fields} />
+
       <div className="flex items-center justify-between py-4 gap-2">
         {/* Left side: Put any title, search bar, or leave it empty */}
-        <div className="flex items-center gap-2"></div>
+        <div className="flex flex-1 flex-col gap-2">
+          <QueryInput onQuery={handleQuery} fields={fields} />
+          {error && (
+            <div className="text-red-600 text-sm">
+              Error fetching collection: {error}
+            </div>
+          )}
+        </div>
 
         {/* Right side: Placed cleanly at the end */}
         <div className="flex items-center gap-2">

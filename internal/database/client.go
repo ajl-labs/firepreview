@@ -16,7 +16,6 @@ func New() *Client {
 }
 
 func (c *Client) Connect(ctx context.Context, config ConnectionConfig) error {
-	fmt.Println("Connecting to Firestore with config:", config)
 	if config.ProjectID == "" {
 		return fmt.Errorf("project ID is required")
 	}

@@ -70,10 +70,36 @@ func parseQuery(queryStr string) ([]ParsedQueryPart, error) {
 
 		}
 
+		// value can be string or array of strings
+		var value any = parts[2]
+		switch parts[1] {
+		case "==", "!=", "<", "<=", ">", ">=", "array-contains":
+			// For these operators, the value can be a string, number, or boolean.
+			// We'll keep it as a string for now and let Firestore handle the type conversion.
+			value = strings.Trim(value.(string), "\"") // Remove quotes if present
+		case "in", "array-contains-any", "not-in":
+			// For these operators, the value should be a JSON array.
+			if !strings.HasPrefix(parts[2], "[") || !strings.HasSuffix(parts[2], "]") {
+				return nil, fmt.Errorf("invalid value for operator %q: %q", parts[1], parts[2])
+			}
+
+			valueStr := strings.Trim(parts[2], "[]")
+			valueParts := strings.Split(valueStr, ",")
+			var valueArray []string
+			for _, v := range valueParts {
+				v = strings.TrimSpace(v)
+				v = strings.Trim(v, "\"") // Remove quotes if present
+				valueArray = append(valueArray, v)
+			}
+			value = valueArray
+		default:
+			return nil, fmt.Errorf("unsupported operator: %q", parts[1])
+		}
+
 		parsedParts = append(parsedParts, ParsedQueryPart{
 			Field:    parts[0],
 			Operator: parts[1],
-			Value:    parts[2],
+			Value:    value,
 		})
 	}
 	return parsedParts, nil
@@ -111,7 +137,7 @@ func (c *Client) GetCollection(ctx context.Context, collectionPath string, param
 		var err error
 		query, err = applyQuery(query, params.Query)
 		if err != nil {
-			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
+			return QueryResult{}, err
 		}
 	}
 

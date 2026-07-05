@@ -46,6 +46,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onQuery, fields }) => {
           className="ml-auto"
           variant="default"
           onClick={handleQuery}
+          disabled={query.trim() === ""}
         >
           Run <IconCornerDownLeft />
         </InputGroupButton>

@@ -94,7 +94,6 @@ export const useCollectionStore = create<CollectionStore>((set, get) => {
         direction: "",
         ...queryParams,
       });
-
       set({
         data: {
           ...get().data,
@@ -115,7 +114,6 @@ export const useCollectionStore = create<CollectionStore>((set, get) => {
         },
       });
     } catch (e: any) {
-      toast.error(`Error fetching collection: ${String(e)}`);
       set({
         data: {
           ...get().data,
