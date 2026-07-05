@@ -29,6 +29,13 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	persistedConfig := database.LoadConnectionConfig()
+	if persistedConfig != nil {
+		if err := a.db.Connect(ctx, *persistedConfig); err != nil {
+			fmt.Printf("auto-reconnect failed: %v\n", err)
+			database.ClearConnection() // delete invalid config
+		}
+	}
 }
 
 // Greet returns a greeting for the given name
