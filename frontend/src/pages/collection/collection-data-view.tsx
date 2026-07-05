@@ -21,7 +21,7 @@ export const CollectionDataViewDialog: React.FC<
         <SheetHeader>
           <SheetTitle className="font-mono text-sm">{document?.id}</SheetTitle>
         </SheetHeader>
-        <div className="mt-4 flex-1 overflow-y-auto">
+        <div className="mt-2 flex-1 overflow-y-auto">
           <CodeBlock value={document?.fields} />
         </div>
       </SheetContent>
