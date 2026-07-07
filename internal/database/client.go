@@ -130,6 +130,7 @@ func (c *Client) Connect(ctx context.Context, config ConnectionConfig) error {
 
 // Disconnect closes the Firestore client if open
 func (c *Client) Disconnect() error {
+	os.Unsetenv("FIRESTORE_EMULATOR_HOST")
 	if c.database != nil {
 		if err := c.database.Close(); err != nil {
 			return fmt.Errorf("Disconnect: %w", err)
