@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ChevronLeft, LogOutIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,9 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, backTo }: PageHeaderProps) {
   const navigate = useNavigate();
-  const { disconnect } = useDatabaseStore((s) => s);
+  const { disconnect, getConnectionStatus, config } = useDatabaseStore(
+    (s) => s,
+  );
 
   const handleLogout = async () => {
     try {
@@ -23,6 +26,9 @@ export function PageHeader({ title, subtitle, backTo }: PageHeaderProps) {
     }
   };
 
+  useEffect(() => {
+    getConnectionStatus();
+  }, []);
   return (
     <div className="flex items-center gap-3 pb-4 border-b">
       {backTo && (
@@ -43,10 +49,18 @@ export function PageHeader({ title, subtitle, backTo }: PageHeaderProps) {
             <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           )}
         </div>
-        <div>
-          <Button variant="destructive" size="sm" onClick={handleLogout}>
+        <div className="flex flex-col items-end gap-2">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-10"
+            onClick={handleLogout}
+          >
             <LogOutIcon />
           </Button>
+          {config && (
+            <p className="text-sm text-muted-foreground">{config?.projectId}</p>
+          )}
         </div>
       </div>
     </div>

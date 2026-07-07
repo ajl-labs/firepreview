@@ -56,6 +56,9 @@ func (a *App) IsDatabaseConnected() bool {
 	return a.db.IsConnected()
 }
 
+func (a *App) GetDatabaseConnectionStatus() (database.ConnectionConfig, bool) {
+	return a.db.GetConnectionStatus(a.ctx)
+}
 func (a *App) DisconnectFirestore() {
 	a.db.Disconnect()
 }
