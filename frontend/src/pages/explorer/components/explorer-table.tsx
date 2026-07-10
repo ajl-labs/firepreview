@@ -1,9 +1,8 @@
-import React from "react";
+import { useEffect } from "react";
 import {
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
-  SortingState,
   useReactTable,
 } from "@tanstack/react-table";
 import {
@@ -17,35 +16,59 @@ import {
 import { database } from "../../../../wailsjs/go/models";
 import { explorerTableColumns } from "./explorer-table-columns";
 import { Button } from "@/components/ui/button";
+import { useExplorerStore } from "@/store/explorer";
+import { useShallow } from "zustand/react/shallow";
 
 interface ExplorerTableProps {
-  data: database.CollectionInfo[];
   onSelect: (collection: database.CollectionInfo) => void;
-  loading?: boolean;
 }
 
-export const ExplorerTable = ({
-  data,
-  onSelect,
-  loading,
-}: ExplorerTableProps) => {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+export const ExplorerTable = ({ onSelect }: ExplorerTableProps) => {
+  const {
+    fetchCollections,
+    collections: data,
+    loading,
+    error,
+    pageIndex,
+    pageSize,
+    setPagination,
+  } = useExplorerStore(
+    useShallow((s) => ({
+      fetchCollections: s.fetchCollections,
+      collections: s.collections,
+      loading: s.loading,
+      error: s.error,
+      pageIndex: s.pageIndex,
+      pageSize: s.pageSize,
+      setPagination: s.setPagination,
+    })),
+  );
+
   const table = useReactTable({
     data,
     columns: explorerTableColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    initialState: {
-      sorting,
-      pagination: {
-        pageSize: 20,
-      },
+    onPaginationChange: (updater) => {
+      if (setPagination) {
+        setPagination(
+          typeof updater === "function"
+            ? updater({ pageIndex, pageSize })
+            : updater,
+        );
+      }
+    },
+    state: {
+      pagination: { pageIndex, pageSize },
     },
   });
 
+  useEffect(() => {
+    fetchCollections();
+  }, []);
   return (
     <div>
+      {error && <p className="text-red-500">{error}</p>}
       <div className="overflow-hidden rounded-md border">
         <Table loading={loading}>
           <TableHeader>

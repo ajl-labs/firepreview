@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { GetCollection, BulkDeleteDocuments } from "../../wailsjs/go/main/App";
 import { database } from "../../wailsjs/go/models";
-import { toast } from "sonner";
 
 const PAGE_SIZE = 50; // Default page size
 
