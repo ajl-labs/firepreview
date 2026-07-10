@@ -65,13 +65,13 @@ func parseQuery(queryStr string) ([]ParsedQueryPart, error) {
 	queryStrCombinations := strings.Split(queryStr, " AND ")
 	for _, queryStr := range queryStrCombinations {
 		parts := strings.Split(queryStr, " ")
-		if len(parts) != 3 {
+		if len(parts) < 3 {
 			return nil, fmt.Errorf("invalid query format: %q", queryStr)
-
 		}
 
 		// value can be string or array of strings
-		var value any = parts[2]
+		var value any = strings.TrimSpace(strings.Join(parts[2:], " "))
+		fmt.Println("search value", value)
 		switch parts[1] {
 		case "==", "!=", "<", "<=", ">", ">=", "array-contains":
 			// For these operators, the value can be a string, number, or boolean.

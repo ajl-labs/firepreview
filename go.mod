@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/firestore v1.22.0
 	firebase.google.com/go/v4 v4.20.0
 	github.com/joho/godotenv v1.5.1
-	github.com/wailsapp/wails/v2 v2.13.0
+	github.com/wailsapp/wails/v2 v2.12.0
 	google.golang.org/api v0.286.0
 )
 
