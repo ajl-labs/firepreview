@@ -83,7 +83,7 @@ export const AuthScreen = () => {
 
   const form = useForm({
     defaultValues: {
-      projectId: "tupandeonline-dev",
+      projectId: "",
       useEmulator: true,
       credentialsPath: "",
       emulatorHost: "localhost:8000",
@@ -129,7 +129,7 @@ export const AuthScreen = () => {
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
                         aria-invalid={isInvalid}
-                        placeholder="tupandeonline-dev"
+                        placeholder="your-project-id"
                       />
                       {isInvalid && (
                         <FieldError errors={field.state.meta.errors} />
