@@ -213,7 +213,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
       </div>
 
       <div className="overflow-hidden rounded-md border">
-        <Table loading={loading && !documents.length && query === ""}>
+        <Table loading={loading}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>

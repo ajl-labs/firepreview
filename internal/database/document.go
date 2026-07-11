@@ -71,12 +71,19 @@ func parseQuery(queryStr string) ([]ParsedQueryPart, error) {
 
 		// value can be string or array of strings
 		var value any = strings.TrimSpace(strings.Join(parts[2:], " "))
-		fmt.Println("search value", value)
 		switch parts[1] {
 		case "==", "!=", "<", "<=", ">", ">=", "array-contains":
 			// For these operators, the value can be a string, number, or boolean.
 			// We'll keep it as a string for now and let Firestore handle the type conversion.
-			value = strings.Trim(value.(string), "\"") // Remove quotes if present
+			switch value {
+			case "true":
+				value = true
+			case "false":
+				value = false
+			default:
+				// Remove quotes if present
+				value = strings.Trim(value.(string), "\"")
+			}
 		case "in", "array-contains-any", "not-in":
 			// For these operators, the value should be a JSON array.
 			if !strings.HasPrefix(parts[2], "[") || !strings.HasSuffix(parts[2], "]") {
