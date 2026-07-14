@@ -57,3 +57,8 @@ type ParsedQueryPart struct {
 	Operator string
 	Value    interface{}
 }
+
+type ConnectionStatus struct {
+	Config    ConnectionConfig `json:"config"`
+	Connected bool             `json:"connected"`
+}

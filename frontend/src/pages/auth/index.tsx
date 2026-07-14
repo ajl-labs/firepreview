@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useDatabaseStore } from "@/store/database";
 import { useNavigate } from "react-router";
 import { Spinner } from "@/components/ui/spinner";
+import { useEffect } from "react";
 
 const formSchema = z
   .object({
@@ -72,8 +73,10 @@ export const AuthScreen = () => {
               emulatorHost: "",
             },
       );
-      navigate("/");
+
+      await database.getConnectionStatus();
     } catch (err) {
+      console.log("Failed to connect to Firestore:", err);
       toast("Failed to connect", {
         description: err instanceof Error ? err.message : String(err),
         position: "bottom-right",
@@ -93,6 +96,24 @@ export const AuthScreen = () => {
     },
     onSubmit,
   });
+
+  useEffect(() => {
+    if (database.connected) {
+      navigate("/");
+    }
+  }, [database.connected]);
+
+  useEffect(() => {
+    if (database.error) {
+      form.setFieldMeta("projectId", (prev) => ({
+        ...prev,
+        errorMap: {
+          ...prev.errorMap,
+          onSubmit: database.error ? [database.error] : [],
+        },
+      }));
+    }
+  }, [database.error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

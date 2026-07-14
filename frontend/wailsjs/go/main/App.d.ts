@@ -10,7 +10,7 @@ export function DisconnectFirestore():Promise<void>;
 
 export function GetCollection(arg1:string,arg2:database.QueryParams):Promise<database.QueryResult>;
 
-export function GetDatabaseConnectionStatus():Promise<database.ConnectionConfig|boolean>;
+export function GetDatabaseConnectionStatus():Promise<database.ConnectionStatus>;
 
 export function GetDocument(arg1:string):Promise<database.DocumentResult>;
 

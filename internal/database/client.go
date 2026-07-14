@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	firestore "firebase.google.com/go/v4"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -146,8 +148,21 @@ func (c *Client) IsConnected() bool {
 	return c.database != nil
 }
 
-func (c *Client) GetConnectionStatus(ctx context.Context) (ConnectionConfig, bool) {
-	return c.config, c.database != nil
+func (c *Client) GetConnectionStatus(ctx context.Context) (ConnectionStatus, error) {
+	if c.database == nil {
+		return ConnectionStatus{Connected: false}, nil
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	iter := c.database.Collections(pingCtx)
+	_, err := iter.Next()
+	if err != nil && err != iterator.Done {
+		return ConnectionStatus{Connected: false}, err
+	}
+
+	return ConnectionStatus{Config: c.config, Connected: true}, nil
 }
 
 // ProjectID returns the project ID of the connected client

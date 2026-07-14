@@ -15,7 +15,7 @@ interface DatabaseStore {
   connect: (config: database.ConnectionConfig) => Promise<void>;
   disconnect: () => Promise<void>;
   hydrate: () => Promise<void>;
-  getConnectionStatus: () => Promise<void>;
+  getConnectionStatus: () => Promise<database.ConnectionStatus>;
 }
 
 export const useDatabaseStore = create<DatabaseStore>((set) => ({
@@ -33,19 +33,18 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
     set({ connecting: true, error: null });
     try {
       await ConnectToDatabase(config);
-      set({ connected: true, connecting: false });
+      await useDatabaseStore.getState().getConnectionStatus();
     } catch (e: any) {
       set({ error: e, connecting: false });
+    } finally {
+      set({ connecting: false });
     }
   },
 
   getConnectionStatus: async () => {
-    const config = await GetDatabaseConnectionStatus();
-    if (typeof config === "boolean") {
-      set({ connected: config, config: null });
-    } else {
-      set({ connected: true, config });
-    }
+    const status = await GetDatabaseConnectionStatus();
+    set({ connected: status.connected, config: status.config });
+    return status;
   },
 
   disconnect: async () => {

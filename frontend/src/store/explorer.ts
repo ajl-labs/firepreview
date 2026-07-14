@@ -24,8 +24,10 @@ export const useExplorerStore = create<ExplorerStore>((set) => ({
     set({ loading: true, error: null });
     try {
       const collections = await ListCollections();
+      console.log("Fetched collections:", collections);
       set({ collections: collections ?? [], loading: false });
     } catch (e: any) {
+      console.log("Error fetching collections:", e);
       set({ error: String(e), loading: false });
     }
   },
