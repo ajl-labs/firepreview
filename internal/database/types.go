@@ -62,3 +62,10 @@ type ConnectionStatus struct {
 	Config    ConnectionConfig `json:"config"`
 	Connected bool             `json:"connected"`
 }
+
+type DeletePreview struct {
+	Collection string `json:"collection"`
+	Where      string `json:"where"`
+	Count      int64  `json:"count"`
+	Total      int64  `json:"total"` // all documents in the collection
+}

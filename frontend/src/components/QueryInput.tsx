@@ -35,7 +35,7 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onQuery, fields }) => {
       <InputGroup>
         <InputGroupTextarea
           id="textarea-code-32"
-          placeholder="field == value AND field2 > value2"
+          placeholder="field == value AND field2 > value2  —  or  DELETE WHERE field == value AND field2 == value2"
           className="min-h-10"
           onChange={onChange}
           value={query}

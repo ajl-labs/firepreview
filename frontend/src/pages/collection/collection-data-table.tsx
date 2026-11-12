@@ -29,6 +29,10 @@ import { useCollection } from "./useCollection";
 import { Spinner } from "@/components/ui/spinner";
 import { CollectionDataViewDialog } from "./collection-data-view";
 import { Ellipsis } from "lucide-react";
+import {
+  DeleteQueryDialog,
+  isDeleteStatement,
+} from "@/components/DeleteQueryDialog";
 
 interface CollectionDataTableProps {
   collectionName: string;
@@ -63,6 +67,7 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   const [currentDocument, setCurrentDocument] =
     React.useState<database.DocumentResult | null>(null);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [deleteStatement, setDeleteStatement] = useState<string | null>(null);
 
   const viewColumn: ColumnDef<database.DocumentResult> = useMemo(
     () => ({
@@ -114,6 +119,10 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   );
 
   const handleQuery = (query: string) => {
+    if (isDeleteStatement(query)) {
+      setDeleteStatement(query);
+      return;
+    }
     // fetchCollection detects the query changed and resets to page 1 / clears
     // the cursor stack internally — no manual page reset needed here.
     handleFetchData({ query });
@@ -128,6 +137,11 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
       await bulkDeleteDocuments(collectionName, idsToDelete);
       setRowSelection({});
     }
+  };
+
+  const handleDeleted = () => {
+    setRowSelection({});
+    handleFetchData({ query });
   };
 
   const handleRowClick = useCallback(
@@ -165,6 +179,12 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
       <CollectionDataViewDialog
         document={currentDocument}
         onClose={() => setCurrentDocument(null)}
+      />
+      <DeleteQueryDialog
+        collectionName={collectionName}
+        statement={deleteStatement}
+        onClose={() => setDeleteStatement(null)}
+        onDeleted={handleDeleted}
       />
 
       <div className="flex items-center justify-between py-4 gap-2">

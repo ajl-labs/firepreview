@@ -8,6 +8,8 @@ export function ConnectToDatabase(arg1:database.ConnectionConfig):Promise<void>;
 
 export function DisconnectFirestore():Promise<void>;
 
+export function ExecuteDeleteQuery(arg1:string,arg2:string):Promise<number>;
+
 export function GetCollection(arg1:string,arg2:database.QueryParams):Promise<database.QueryResult>;
 
 export function GetDatabaseConnectionStatus():Promise<database.ConnectionStatus>;
@@ -19,3 +21,5 @@ export function Greet(arg1:string):Promise<string>;
 export function IsDatabaseConnected():Promise<boolean>;
 
 export function ListCollections():Promise<Array<database.CollectionInfo>>;
+
+export function PreviewDeleteQuery(arg1:string,arg2:string):Promise<database.DeletePreview>;

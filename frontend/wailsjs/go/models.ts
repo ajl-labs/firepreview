@@ -80,6 +80,24 @@ export namespace database {
 		    return a;
 		}
 	}
+	export class DeletePreview {
+	    collection: string;
+	    where: string;
+	    count: number;
+	    total: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DeletePreview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.collection = source["collection"];
+	        this.where = source["where"];
+	        this.count = source["count"];
+	        this.total = source["total"];
+	    }
+	}
 	export class DocumentResult {
 	    id: string;
 	    path: string;

@@ -78,3 +78,11 @@ func (a *App) GetDocument(docPath string) (database.DocumentResult, error) {
 func (a *App) BulkDeleteDocuments(collectionPath string, docIDs []string) error {
 	return a.db.BulkDeleteDocuments(a.ctx, collectionPath, docIDs)
 }
+
+func (a *App) PreviewDeleteQuery(collection string, statement string) (database.DeletePreview, error) {
+	return a.db.PreviewDeleteQuery(a.ctx, collection, statement)
+}
+
+func (a *App) ExecuteDeleteQuery(collection string, statement string) (int64, error) {
+	return a.db.ExecuteDeleteQuery(a.ctx, collection, statement)
+}

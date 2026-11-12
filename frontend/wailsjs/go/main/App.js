@@ -14,6 +14,10 @@ export function DisconnectFirestore() {
   return window['go']['main']['App']['DisconnectFirestore']();
 }
 
+export function ExecuteDeleteQuery(arg1, arg2) {
+  return window['go']['main']['App']['ExecuteDeleteQuery'](arg1, arg2);
+}
+
 export function GetCollection(arg1, arg2) {
   return window['go']['main']['App']['GetCollection'](arg1, arg2);
 }
@@ -36,4 +40,8 @@ export function IsDatabaseConnected() {
 
 export function ListCollections() {
   return window['go']['main']['App']['ListCollections']();
+}
+
+export function PreviewDeleteQuery(arg1, arg2) {
+  return window['go']['main']['App']['PreviewDeleteQuery'](arg1, arg2);
 }
