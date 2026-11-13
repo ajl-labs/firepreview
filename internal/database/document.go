@@ -61,6 +61,32 @@ func applyQuery(query firestore.Query, queryStr string) (firestore.Query, error)
 	return query, nil
 }
 
+// rangeFilterFields returns the fields used with an inequality operator, in the
+// order they appear. Firestore requires a query to be ordered by these fields
+// before any other order-by, including the document ID.
+func rangeFilterFields(queryStr string) ([]string, error) {
+	if strings.TrimSpace(queryStr) == "" {
+		return nil, nil
+	}
+	parsedParts, err := parseQuery(queryStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var fields []string
+	seen := make(map[string]bool)
+	for _, part := range parsedParts {
+		switch part.Operator {
+		case "<", "<=", ">", ">=", "!=", "not-in":
+			if !seen[part.Field] {
+				seen[part.Field] = true
+				fields = append(fields, part.Field)
+			}
+		}
+	}
+	return fields, nil
+}
+
 func parseQuery(queryStr string) ([]ParsedQueryPart, error) {
 	var parsedParts []ParsedQueryPart
 	queryStrCombinations := strings.Split(queryStr, " AND ")
@@ -166,11 +192,19 @@ func (c *Client) GetCollection(ctx context.Context, collectionPath string, param
 	}
 	total := extractCount(countRes)
 
-	// 3. always order by __name__ ascending — never Desc, never LimitToLast.
+	// 3. order by any range-filtered fields first (Firestore requires it), then
+	// by __name__ ascending — never Desc, never LimitToLast.
 	// Firestore's document-ID-only index does not support descending/reverse
 	// scans, which is what LimitToLast does internally under the hood. Instead,
 	// "prev" is just another forward (StartAfter) query using the cursor for
 	// the previous page, which the frontend already tracks in its cursor stack.
+	rangeFields, err := rangeFilterFields(params.Query)
+	if err != nil {
+		return QueryResult{}, err
+	}
+	for _, field := range rangeFields {
+		query = query.OrderBy(field, firestore.Asc)
+	}
 	query = query.OrderBy(firestore.DocumentID, firestore.Asc)
 
 	// fetch one extra to check for next page
@@ -184,10 +218,19 @@ func (c *Client) GetCollection(ctx context.Context, collectionPath string, param
 		if err != nil {
 			return QueryResult{}, fmt.Errorf("GetCollection: %w", err)
 		}
-		query = query.StartAfter(cursorParams.DocID).Limit(plusOneLimit)
-	} else {
-		query = query.Limit(plusOneLimit)
+		if len(rangeFields) == 0 {
+			query = query.StartAfter(cursorParams.DocID)
+		} else {
+			// with several order-by fields the cursor needs every ordered value;
+			// starting after the snapshot lets Firestore read them from the document
+			cursorSnap, err := c.database.Collection(collectionPath).Doc(cursorParams.DocID).Get(ctx)
+			if err != nil {
+				return QueryResult{}, fmt.Errorf("GetCollection: cursor document: %w", err)
+			}
+			query = query.StartAfter(cursorSnap)
+		}
 	}
+	query = query.Limit(plusOneLimit)
 
 	docsWithExtra, err := query.Documents(ctx).GetAll()
 
