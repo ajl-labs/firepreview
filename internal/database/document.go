@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"cloud.google.com/go/firestore"
@@ -69,34 +70,21 @@ func parseQuery(queryStr string) ([]ParsedQueryPart, error) {
 			return nil, fmt.Errorf("invalid query format: %q", queryStr)
 		}
 
-		// value can be string or array of strings
-		var value any = strings.TrimSpace(strings.Join(parts[2:], " "))
+		rawValue := strings.TrimSpace(strings.Join(parts[2:], " "))
+		var value any
 		switch parts[1] {
 		case "==", "!=", "<", "<=", ">", ">=", "array-contains":
-			// For these operators, the value can be a string, number, or boolean.
-			// We'll keep it as a string for now and let Firestore handle the type conversion.
-			switch value {
-			case "true":
-				value = true
-			case "false":
-				value = false
-			default:
-				// Remove quotes if present
-				value = strings.Trim(value.(string), "\"")
-			}
+			value = parseLiteral(rawValue)
 		case "in", "array-contains-any", "not-in":
-			// For these operators, the value should be a JSON array.
-			if !strings.HasPrefix(parts[2], "[") || !strings.HasSuffix(parts[2], "]") {
-				return nil, fmt.Errorf("invalid value for operator %q: %q", parts[1], parts[2])
+			// For these operators, the value should be an array like [a, "b c", 3].
+			if !strings.HasPrefix(rawValue, "[") || !strings.HasSuffix(rawValue, "]") {
+				return nil, fmt.Errorf("invalid value for operator %q: %q", parts[1], rawValue)
 			}
 
-			valueStr := strings.Trim(parts[2], "[]")
-			valueParts := strings.Split(valueStr, ",")
-			var valueArray []string
+			valueParts := strings.Split(strings.Trim(rawValue, "[]"), ",")
+			valueArray := make([]any, 0, len(valueParts))
 			for _, v := range valueParts {
-				v = strings.TrimSpace(v)
-				v = strings.Trim(v, "\"") // Remove quotes if present
-				valueArray = append(valueArray, v)
+				valueArray = append(valueArray, parseLiteral(v))
 			}
 			value = valueArray
 		default:
@@ -110,6 +98,29 @@ func parseQuery(queryStr string) ([]ParsedQueryPart, error) {
 		})
 	}
 	return parsedParts, nil
+}
+
+// parseLiteral converts a query value to its Go type: "quoted" stays a string,
+// true/false become booleans, unquoted numbers become int64 or float64, and
+// anything else is treated as a string.
+func parseLiteral(raw string) any {
+	raw = strings.TrimSpace(raw)
+	if len(raw) >= 2 && strings.HasPrefix(raw, "\"") && strings.HasSuffix(raw, "\"") {
+		return raw[1 : len(raw)-1]
+	}
+	switch raw {
+	case "true":
+		return true
+	case "false":
+		return false
+	}
+	if i, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return i
+	}
+	if f, err := strconv.ParseFloat(raw, 64); err == nil {
+		return f
+	}
+	return raw
 }
 
 // snapshotToResult converts a Firestore DocumentSnapshot to a DocumentResult
