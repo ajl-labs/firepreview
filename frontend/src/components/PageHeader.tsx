@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { ChevronLeft, LogOutIcon } from "lucide-react";
+import { BookOpen, ChevronLeft, LogOutIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDatabaseStore } from "@/store/database";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ import { toast } from "sonner";
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
-  backTo?: string; // if omitted, uses navigate(-1)
+  backTo?: string | number; // a path, or a history offset like -1
 }
 
 export function PageHeader({ title, subtitle, backTo }: PageHeaderProps) {
@@ -35,7 +35,9 @@ export function PageHeader({ title, subtitle, backTo }: PageHeaderProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => (backTo ? navigate(backTo) : navigate(-1))}
+          onClick={() =>
+            typeof backTo === "number" ? navigate(backTo) : navigate(backTo)
+          }
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -50,14 +52,23 @@ export function PageHeader({ title, subtitle, backTo }: PageHeaderProps) {
           )}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            className="w-10"
-            onClick={handleLogout}
-          >
-            <LogOutIcon />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/docs")}
+            >
+              <BookOpen /> Query help
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-10"
+              onClick={handleLogout}
+            >
+              <LogOutIcon />
+            </Button>
+          </div>
           {config && (
             <p className="text-sm text-muted-foreground">{config?.projectId}</p>
           )}

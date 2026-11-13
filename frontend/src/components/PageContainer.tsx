@@ -4,7 +4,7 @@ import { PageHeader } from "./PageHeader";
 interface PageContainerProps {
   title: string;
   subtitle?: string;
-  backTo?: string;
+  backTo?: string | number;
   children: React.ReactNode;
 }
 

@@ -6,7 +6,8 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { SearchIcon } from "lucide-react";
+import { CircleHelp, SearchIcon } from "lucide-react";
+import { useNavigate } from "react-router";
 
 interface QueryInputProps {
   onQuery: (clauses: string) => void;
@@ -14,6 +15,7 @@ interface QueryInputProps {
 }
 
 export const QueryInput: React.FC<QueryInputProps> = ({ onQuery, fields }) => {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const handleQuery = () => {
     onQuery(query);
@@ -41,6 +43,15 @@ export const QueryInput: React.FC<QueryInputProps> = ({ onQuery, fields }) => {
           value={query}
           onBlur={handleOnBlur}
         />
+        <InputGroupButton
+          size="icon-xs"
+          variant="ghost"
+          onClick={() => navigate("/docs")}
+          aria-label="Query help"
+          title="Query help"
+        >
+          <CircleHelp />
+        </InputGroupButton>
         <InputGroupButton
           size="sm"
           className="ml-auto"

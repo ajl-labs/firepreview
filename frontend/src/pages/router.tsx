@@ -4,6 +4,7 @@ import { ExplorerPage } from "./explorer";
 import { AuthScreen } from "./auth";
 import { useDatabaseStore } from "@/store/database";
 import { CollectionPage } from "./collection";
+import { DocsPage } from "./docs";
 import { RouteErrorBoundary } from "./Error";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -68,6 +69,10 @@ export const router = createHashRouter([
           {
             path: "/collection/:collectionName",
             element: <CollectionPage />,
+          },
+          {
+            path: "/docs",
+            element: <DocsPage />,
           },
         ],
       },
