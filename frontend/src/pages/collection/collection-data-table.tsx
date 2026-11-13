@@ -139,6 +139,11 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
     }
   };
 
+  const handleDocumentSaved = (updated: database.DocumentResult) => {
+    setCurrentDocument(updated);
+    handleFetchData({ query });
+  };
+
   const handleDeleted = () => {
     setRowSelection({});
     handleFetchData({ query });
@@ -177,8 +182,10 @@ export const CollectionDataTable: React.FC<CollectionDataTableProps> = ({
   return (
     <div>
       <CollectionDataViewDialog
+        collectionName={collectionName}
         document={currentDocument}
         onClose={() => setCurrentDocument(null)}
+        onSaved={handleDocumentSaved}
       />
       <DeleteQueryDialog
         collectionName={collectionName}

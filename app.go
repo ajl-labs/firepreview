@@ -86,3 +86,7 @@ func (a *App) PreviewDeleteQuery(collection string, statement string) (database.
 func (a *App) ExecuteDeleteQuery(collection string, statement string) (int64, error) {
 	return a.db.ExecuteDeleteQuery(a.ctx, collection, statement)
 }
+
+func (a *App) UpdateDocument(collection string, docID string, changesJSON string, removedFields []string) (database.DocumentResult, error) {
+	return a.db.UpdateDocument(a.ctx, collection, docID, changesJSON, removedFields)
+}

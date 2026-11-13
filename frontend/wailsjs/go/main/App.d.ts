@@ -23,3 +23,5 @@ export function IsDatabaseConnected():Promise<boolean>;
 export function ListCollections():Promise<Array<database.CollectionInfo>>;
 
 export function PreviewDeleteQuery(arg1:string,arg2:string):Promise<database.DeletePreview>;
+
+export function UpdateDocument(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<database.DocumentResult>;
